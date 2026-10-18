@@ -9,6 +9,11 @@ on:
   issues:
     types: [opened, edited, reopened, closed, labeled, unlabeled]
   workflow_dispatch:
+    inputs:
+      testsok:
+        description: 'Prøv et søk uten å lagre eller varsle (f.eks. håndkle)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -36,11 +41,13 @@ jobs:
       - name: Hent tilbud og varsle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KASSALAPP_API_KEY: ${{ secrets.KASSALAPP_API_KEY }}
+          KASSALAPP_API_KEY: ${{ secrets.KASSALAPP_API_SECRET || secrets.KASSALAPP_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TESTSOK: ${{ github.event.inputs.testsok }}
         run: node scripts/sjekk.mjs
 
       - name: Lagre funn
+        if: github.event.inputs.testsok == ''
         run: |
           git config user.name "Tilbudsvakt"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

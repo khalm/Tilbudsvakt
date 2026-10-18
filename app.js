@@ -48,7 +48,7 @@ const T = {
         <li><b>Du får varsel</b> som en kommentar på ønsket i GitHub-appen. Slå på varsler i GitHub-appen på telefonen. Vil du heller ha varsel via <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a>, legg et hemmelig emnenavn i repo-secret <code>NTFY_TOPIC</code> og abonner på det samme navnet i ntfy-appen.</li>
         <li><b>Kjøpt det?</b> Trykk «Kjøpt / fjern» og lukk ønsket, så stopper varslene.</li>
       </ol>
-      <p class="liten"><b>Dagligvarer med prishistorikk:</b> lag en gratis nøkkel på <a href="https://kassal.app/api" target="_blank" rel="noopener">kassal.app/api</a> og legg den som repo-secret <code>KASSALAPP_API_KEY</code> (GitHub → Settings → Secrets and variables → Actions). Da varsles du også når en dagligvare er minst 10 % billigere enn den har vært de siste 60 dagene.</p>`,
+      <p class="liten"><b>Dagligvarer med prishistorikk:</b> lag en gratis nøkkel på <a href="https://kassal.app/api" target="_blank" rel="noopener">kassal.app/api</a> og legg den som repo-secret <code>KASSALAPP_API_SECRET</code> (GitHub → Settings → Secrets and variables → Actions). Da varsles du også når en dagligvare er minst 10 % billigere enn den har vært de siste 60 dagene.</p>`,
   },
   en: {
     nyTittel: 'What do you need?', nyPlaceholder: 'E.g. towel, teaspoons, firewood, coffee (Norwegian works best)', leggTil: 'Add',
@@ -82,7 +82,7 @@ const T = {
         <li><b>You get notified</b> as a comment on the wish in the GitHub app. Turn on notifications in the GitHub mobile app. Prefer <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a>? Put a secret topic name in the repo secret <code>NTFY_TOPIC</code> and subscribe to it in the ntfy app.</li>
         <li><b>Bought it?</b> Tap “Bought / remove” and close the wish to stop notifications.</li>
       </ol>
-      <p class="liten"><b>Groceries with price history:</b> create a free key at <a href="https://kassal.app/api" target="_blank" rel="noopener">kassal.app/api</a> and add it as the repo secret <code>KASSALAPP_API_KEY</code>. You’ll then also be notified when a grocery item is at least 10% cheaper than in the last 60 days.</p>`,
+      <p class="liten"><b>Groceries with price history:</b> create a free key at <a href="https://kassal.app/api" target="_blank" rel="noopener">kassal.app/api</a> and add it as the repo secret <code>KASSALAPP_API_SECRET</code>. You’ll then also be notified when a grocery item is at least 10% cheaper than in the last 60 days.</p>`,
   },
 };
 let sprak = (() => { try { return localStorage.getItem('sprak') || 'nb'; } catch { return 'nb'; } })();

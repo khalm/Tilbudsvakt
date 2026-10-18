@@ -17,7 +17,7 @@ const REPO = process.env.GITHUB_REPOSITORY ?? 'khalm/tilbudsvakt';
 const GH_TOKEN = process.env.GITHUB_TOKEN ?? '';
 const KASSAL_KEY = process.env.KASSALAPP_API_KEY ?? '';
 const NTFY_TOPIC = process.env.NTFY_TOPIC ?? '';
-const TORR = process.env.DRY_RUN === '1'; // ingen kommentarer/varsler
+const TORR = () => process.env.DRY_RUN === '1'; // ingen kommentarer/varsler
 const ETIKETT = 'ønske';
 const MAKS_TERMER = 10;          // søk per ønske og kilde
 const RABATT_GRENSE = 0.9;       // Kassalapp: minst 10 % under nylig pris
@@ -163,7 +163,7 @@ function linje(t) {
 }
 
 async function varsle(onske, nye) {
-  if (TORR || !nye.length) return;
+  if (TORR() || !nye.length) return;
   const tekst = [`🔔 **${nye.length === 1 ? 'Nytt tilbud' : `${nye.length} nye tilbud`} på ${onske.tittel}**`, '', ...nye.slice(0, 15).map(linje)];
   if (nye.length > 15) tekst.push('', `…og ${nye.length - 15} til. Se alle i [Tilbudsvakt](${APP_URL}).`);
   tekst.push('', `_Lukk dette ønsket når du har kjøpt det, så slutter varslene._`);
@@ -190,8 +190,11 @@ async function varsle(onske, nye) {
 
 // ---------- Hovedløp ----------
 async function main() {
+  const testsok = (process.env.TESTSOK ?? '').trim();
   await sikreEtikett();
-  const onsker = await hentOnsker();
+  // Testsøk: lat som det finnes ett ønske, vis resultatet i loggen, lagre/varsle ingenting.
+  const onsker = testsok ? [{ nr: 0, tittel: testsok, makspris: null, ekstra: [], unnga: [], butikker: [] }] : await hentOnsker();
+  if (testsok) process.env.DRY_RUN = '1';
   const sett = await lesJson('sett.json', {});
   const historikk = await lesJson('historikk.json', {});
   const kilder = {
@@ -237,6 +240,12 @@ async function main() {
     console.log(`#${onske.nr} ${onske.tittel}: ${liste.length} treff (${nye.length} nye) – søkte på ${termer.join(', ')}`);
 
     resultat.push({ ...onske, termer: plan.termer, unnga: plan.unnga, funn: liste });
+    if (testsok) {
+      console.log(`Unngår: ${plan.unnga.join(', ') || '–'}`);
+      for (const t of liste) console.log(`  ${t.pris ?? '?'} kr  ${t.tittel}  (${t.butikk}, ${t.kilde}, traff «${t.traff}» – ${t.grunn})`);
+      console.log('Kilder:', JSON.stringify(kilder));
+      return;
+    }
   }
 
   // Rydd: glem varsler eldre enn 60 dager og historikk for produkter vi ikke følger lenger.

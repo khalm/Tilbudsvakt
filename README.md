@@ -45,7 +45,7 @@ Alle feltene er valgfrie og kan endres når som helst.
 ## Oppsett (alt gratis)
 
 - **Kassalapp (dagligvarer med prishistorikk):** lag nøkkel på https://kassal.app/api og legg den som
-  repo-secret `KASSALAPP_API_KEY` (Settings → Secrets and variables → Actions).
+  repo-secret `KASSALAPP_API_SECRET` (Settings → Secrets and variables → Actions).
 - **ntfy (valgfritt):** finn på et hemmelig emnenavn, legg det som secret `NTFY_TOPIC`
   og abonner på samme navn i ntfy-appen.
 - **Varsler i GitHub-appen:** slå på push for «Issues»/«Participating» i GitHub-appen på telefonen.
