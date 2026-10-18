@@ -16,10 +16,10 @@ test('forslag rangeres: ordbok > beslektet > tilbud, dekkede ord utelates', () =
   const ord = f.map((x) => x.ord);
   assert.equal(ord[0], 'vaskeklut');           // ordbok først
   assert.ok(ord.includes('strandlaken'));      // beslektet gruppe (badelaken)
-  assert.ok(ord.includes('frottéklut'));       // fra tilbud, tre butikker
   assert.ok(!ord.includes('håndklede'));       // allerede i søket
   assert.ok(!ord.includes('hvit'));            // fyllord
-  assert.ok(ord.indexOf('strandlaken') < ord.indexOf('frottéklut'));
+  assert.ok(ord.indexOf('vaskeklut') < ord.indexOf('strandlaken'));
+  assert.ok(!ord.includes('frottéklut'));      // ord fra tilbudstitler brukes ikke (for mye støy)
   assert.ok(!ord.includes('strandhåndkle'));   // dekket: sammensatt med håndkle
 });
 

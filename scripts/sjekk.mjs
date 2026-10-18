@@ -11,7 +11,7 @@
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { utvid, passer, lesOnske, butikkOk, liste as kommaliste, brett } from '../lib/matcher.js';
-import { rangerForslag, hentOrdbok } from '../lib/forslag.js';
+import { rangerForslag, hentOrdboker } from '../lib/forslag.js';
 
 const VERSJON = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 const REPO = process.env.GITHUB_REPOSITORY ?? 'khalm/tilbudsvakt';
@@ -299,14 +299,14 @@ async function main() {
     await varsle(onske, nye);
     console.log(`#${onske.nr} ${onske.tittel}: ${liste.length} treff (${nye.length} nye) – søkte på ${termer.join(', ')}`);
 
-    const ordbok = await hentOrdbok(onske.tittel);
+    const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
     const forslag = rangerForslag({ plan, ordbok, avviste });
     resultat.push({ ...onske, termer: plan.termer, unnga: plan.unnga, forslag, funn: liste });
     if (testsok) {
       console.log(`Unngår: ${plan.unnga.join(', ') || '–'}`);
       for (const t of liste) console.log(`  ${t.pris ?? '?'} kr  ${t.tittel}  (${t.butikk}, ${t.kilde}, traff «${t.traff}» – ${t.grunn})`);
       console.log('Kilder:', JSON.stringify(kilder));
-      await skrivJson('testsok.json', { sok: testsok, tid: nå.toISOString(), kilder, termer: plan.termer, unnga: plan.unnga, ordbok, forslag, funn: liste });
+      await skrivJson('testsok.json', { sok: testsok, tid: nå.toISOString(), kilder, termer: plan.termer, unnga: plan.unnga, ordbok, ordbokStatus, forslag, funn: liste });
       return;
     }
   }
