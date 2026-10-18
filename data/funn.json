@@ -1,6 +1,15 @@
 {
   "versjon": "1.0.0",
-  "oppdatert": null,
-  "kilder": {},
+  "oppdatert": "2026-10-18T20:32:43.202Z",
+  "kilder": {
+    "tjek": {
+      "status": "ok",
+      "navn": "eTilbudsavis (kundeaviser)"
+    },
+    "kassalapp": {
+      "status": "mangler nøkkel",
+      "navn": "Kassalapp (dagligvarer)"
+    }
+  },
   "onsker": []
 }
