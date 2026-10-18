@@ -1,0 +1,54 @@
+name: Sjekk tilbud
+
+on:
+  schedule:
+    # Hver morgen ca. kl. 06:47 norsk vintertid (07:47 sommertid). GitHub bruker UTC.
+    - cron: '47 5 * * *'
+    # Og ettermiddag, når mange nye kundeaviser publiseres.
+    - cron: '23 14 * * *'
+  issues:
+    types: [opened, edited, reopened, closed, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sjekk-tilbud
+  cancel-in-progress: false
+
+jobs:
+  sjekk:
+    # Ved issue-hendelser: bare når det gjelder et ønske.
+    if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'ønske') || github.event.action == 'unlabeled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test matcheren
+        run: npm test
+
+      - name: Hent tilbud og varsle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KASSALAPP_API_KEY: ${{ secrets.KASSALAPP_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: node scripts/sjekk.mjs
+
+      - name: Lagre funn
+        run: |
+          git config user.name "Tilbudsvakt"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "Ingen endringer."
+          else
+            git commit -m "Oppdater tilbud $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase --autostash || true
+            git push
+          fi

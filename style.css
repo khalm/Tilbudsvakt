@@ -1,0 +1,151 @@
+:root {
+  --bg: #f4f1ea;
+  --flate: #fffdf8;
+  --tekst: #1d2420;
+  --svak: #66706a;
+  --linje: #e2ddd2;
+  --merke: #0f5c45;
+  --merke-lys: #e1efe8;
+  --signal: #e2572b;
+  --signal-lys: #fde7de;
+  --skygge: 0 1px 2px rgb(30 40 30 / 6%), 0 4px 16px rgb(30 40 30 / 6%);
+  --radius: 16px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111613;
+    --flate: #1a211d;
+    --tekst: #e9ede9;
+    --svak: #9aa59e;
+    --linje: #2b352f;
+    --merke: #5cc39b;
+    --merke-lys: #1f3a2f;
+    --signal: #ff8a5e;
+    --signal-lys: #3a2219;
+    --skygge: none;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--tekst);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+a { color: var(--merke); }
+h1, h2, h3 { line-height: 1.2; margin: 0; }
+h2 { font-size: 1.15rem; margin-bottom: .75rem; }
+h3 { font-size: 1.1rem; }
+
+.topp {
+  background: var(--merke);
+  color: #fff;
+  padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
+}
+@media (prefers-color-scheme: dark) { .topp { background: #12382b; } }
+.topp-indre { display: flex; align-items: center; gap: 12px; max-width: 680px; margin: 0 auto; }
+.logo { border-radius: 10px; flex: none; }
+.merke { flex: 1; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.merke h1 { font-size: 1.4rem; letter-spacing: -.01em; }
+.versjon {
+  font-size: .75rem; font-weight: 600;
+  background: rgb(255 255 255 / 18%); padding: 2px 8px; border-radius: 99px;
+}
+.sprak {
+  background: rgb(255 255 255 / 14%); color: #fff; border: 0; border-radius: 10px;
+  font: inherit; font-weight: 600; font-size: .85rem; padding: 6px 10px; cursor: pointer;
+}
+.status { max-width: 680px; margin: 8px auto 0; font-size: .85rem; opacity: .85; }
+
+main { max-width: 680px; margin: 0 auto; padding: 16px; display: grid; gap: 20px; }
+.kort {
+  background: var(--flate); border: 1px solid var(--linje);
+  border-radius: var(--radius); padding: 16px; box-shadow: var(--skygge);
+}
+.legg-til { margin-top: -4px; }
+.liten { font-size: .85rem; margin: .4rem 0 0; }
+.svak { color: var(--svak); }
+.hjelp { color: var(--svak); }
+
+input {
+  width: 100%; font: inherit; color: var(--tekst);
+  background: var(--bg); border: 1.5px solid var(--linje); border-radius: 12px;
+  padding: 12px 14px; min-height: 48px;
+}
+input:focus { outline: none; border-color: var(--merke); box-shadow: 0 0 0 3px var(--merke-lys); }
+.rad { display: flex; gap: 8px; }
+.rad input { flex: 1; min-width: 0; }
+
+.knapp {
+  font: inherit; font-weight: 600; border-radius: 12px; cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
+}
+.knapp.hoved { background: var(--merke); color: #fff; border: 0; padding: 0 18px; min-height: 48px; }
+@media (prefers-color-scheme: dark) { .knapp.hoved { color: #0b1a14; } }
+.knapp.tekst { background: none; border: 0; color: var(--merke); padding: 8px 4px; min-height: 40px; }
+
+.flere { margin-top: 12px; }
+.flere summary { cursor: pointer; color: var(--merke); font-weight: 600; padding: 4px 0; }
+.flere label { display: grid; gap: 4px; margin-top: 10px; font-size: .9rem; color: var(--svak); }
+
+.forhand { margin-top: 10px; }
+.brikker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.brikke {
+  font-size: .8rem; background: var(--merke-lys); color: var(--merke);
+  padding: 3px 10px; border-radius: 99px;
+}
+.mer { display: contents; }
+.mer summary { font-size: .8rem; color: var(--svak); cursor: pointer; padding: 3px 4px; list-style: none; }
+.mer summary::-webkit-details-marker { display: none; }
+.mer[open] summary { display: none; }
+
+.seksjon-topp { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.seksjon-topp h2 { margin: 0; }
+.onsker { display: grid; gap: 12px; }
+.tom { color: var(--svak); text-align: center; padding: 24px 8px; }
+
+.onske.har-tilbud { border-color: color-mix(in srgb, var(--signal) 45%, var(--linje)); }
+.onske-topp { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.onske-topp h3::first-letter { text-transform: uppercase; }
+.teller {
+  flex: none; font-size: .8rem; font-weight: 600; color: var(--svak);
+  border: 1px solid var(--linje); padding: 2px 10px; border-radius: 99px;
+}
+.teller.aktiv { background: var(--signal); border-color: var(--signal); color: #fff; }
+
+.tilbudsliste { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+.tilbud {
+  display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: start;
+  padding-top: 10px; border-top: 1px solid var(--linje);
+}
+.tilbud img, .bilde-tom {
+  width: 56px; height: 56px; object-fit: contain; border-radius: 10px;
+  background: #fff; border: 1px solid var(--linje);
+}
+.bilde-tom { display: grid; place-items: center; font-size: 1.4rem; background: var(--bg); }
+.tilbud-navn { font-weight: 600; line-height: 1.3; }
+.tilbud-meta { font-size: .82rem; color: var(--svak); }
+.lenke { font-size: .85rem; font-weight: 600; display: inline-block; margin-top: 2px; text-decoration: none; }
+.pris { text-align: right; white-space: nowrap; }
+.naa { font-weight: 700; font-size: 1.1rem; color: var(--signal); }
+.for { font-size: .8rem; color: var(--svak); text-decoration: line-through; }
+.rabatt {
+  display: inline-block; margin-top: 2px; font-size: .75rem; font-weight: 700;
+  background: var(--signal-lys); color: var(--signal); padding: 1px 6px; border-radius: 6px;
+}
+.handlinger { display: flex; gap: 12px; margin-top: 8px; justify-content: flex-end; }
+
+.test-svar { margin-top: 8px; }
+.test-svar p { margin: 4px 0; }
+.ok { color: var(--merke); font-weight: 600; }
+
+.info ol { padding-left: 1.2rem; margin: 0; }
+.info li { margin-bottom: .6rem; }
+code { font-size: .85em; background: var(--bg); padding: 1px 5px; border-radius: 5px; }
+
+.bunn { text-align: center; color: var(--svak); font-size: .85rem; padding: 8px 16px 28px; }

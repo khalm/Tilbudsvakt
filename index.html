@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tilbudsvakt</title>
+  <meta name="description" content="Skriv hva du trenger – Tilbudsvakt følger med på tilbud og varsler deg.">
+  <meta name="theme-color" content="#0f5c45">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topp">
+    <div class="topp-indre">
+      <img src="icon.svg" alt="" class="logo" width="40" height="40">
+      <div class="merke">
+        <h1>Tilbudsvakt</h1>
+        <span class="versjon" id="versjon">v1.0.0</span>
+      </div>
+      <button class="sprak" id="sprak" type="button" aria-label="Bytt språk">EN</button>
+    </div>
+    <p class="status" id="status" aria-live="polite">…</p>
+  </header>
+
+  <main>
+    <section class="kort legg-til" aria-labelledby="ny-tittel">
+      <h2 id="ny-tittel" data-t="nyTittel">Hva trenger du?</h2>
+      <form id="ny-form" autocomplete="off">
+        <div class="rad">
+          <input id="ny-ord" name="ord" type="text" required maxlength="80"
+                 data-tp="nyPlaceholder" placeholder="F.eks. håndkle, teskjeer, ved, kaffe">
+          <button type="submit" class="knapp hoved" data-t="leggTil">Legg til</button>
+        </div>
+        <div class="forhand" id="forhand" hidden>
+          <p class="liten" data-t="sokerOgsa">Søker også etter:</p>
+          <div class="brikker" id="forhand-brikker"></div>
+        </div>
+        <details class="flere">
+          <summary data-t="flereValg">Flere valg</summary>
+          <label><span data-t="makspris">Makspris (kr)</span>
+            <input id="ny-pris" type="number" inputmode="decimal" min="0" step="any" placeholder="—"></label>
+          <label><span data-t="andreOrd">Andre ord den kan hete (komma mellom)</span>
+            <input id="ny-ekstra" type="text" data-tp="andreOrdPh" placeholder="F.eks. frottéklut, gjestehåndkle"></label>
+          <label><span data-t="unnga">Unngå treff med (komma mellom)</span>
+            <input id="ny-unnga" type="text" data-tp="unngaPh" placeholder="F.eks. papir, stativ"></label>
+          <label><span data-t="butikker">Bare disse butikkene (tomt = alle)</span>
+            <input id="ny-butikker" type="text" data-tp="butikkerPh" placeholder="F.eks. Europris, Jysk, Kiwi"></label>
+        </details>
+        <p class="liten hjelp" data-t="leggTilHjelp">Ønsket lagres på GitHub. Trykk «Create» / «Submit new issue» på siden som åpnes, så sjekkes tilbudene med en gang.</p>
+      </form>
+    </section>
+
+    <section aria-labelledby="liste-tittel">
+      <div class="seksjon-topp">
+        <h2 id="liste-tittel" data-t="listeTittel">Ønskelisten din</h2>
+        <button class="knapp tekst" id="oppdater" type="button" data-t="oppdater">Oppdater</button>
+      </div>
+      <div id="onsker" class="onsker"><p class="tom" data-t="laster">Laster …</p></div>
+    </section>
+
+    <section class="kort" aria-labelledby="test-tittel">
+      <h2 id="test-tittel" data-t="testTittel">Test et produktnavn</h2>
+      <p class="liten" data-t="testHjelp">Lim inn navnet på en vare for å se om den ville gitt treff på ønskene dine.</p>
+      <input id="test-ord" type="text" data-tp="testPh" placeholder="F.eks. «Frotté håndduk 50x70»">
+      <div id="test-svar" class="test-svar" aria-live="polite"></div>
+    </section>
+
+    <section class="kort info" aria-labelledby="info-tittel">
+      <h2 id="info-tittel" data-t="infoTittel">Slik virker det</h2>
+      <div id="info-tekst"></div>
+    </section>
+  </main>
+
+  <footer class="bunn">
+    <span id="bunn-versjon">Tilbudsvakt v1.0.0</span> ·
+    <a id="repo-lenke" href="https://github.com/khalm/tilbudsvakt" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
