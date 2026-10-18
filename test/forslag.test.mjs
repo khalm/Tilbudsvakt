@@ -27,3 +27,15 @@ test('ett enkelt tilbud i én butikk blir ikke foreslått', () => {
   const plan = utvid({ tittel: 'ved' });
   assert.deepEqual(fraTilbud([{ tittel: 'Pizzaovn gass', butikk: 'Obs' }], plan), []);
 });
+
+test('teskje foreslår andre skjeer (samme siste ledd)', () => {
+  const plan = utvid({ tittel: 'teskje' });
+  const ord = rangerForslag({ plan }).map((x) => x.ord);
+  assert.ok(ord.includes('spiseskje'), ord.join(','));
+});
+
+test('lærte synonymer fra egne ønsker rangeres høyt', () => {
+  const plan = utvid({ tittel: 'håndkle' });
+  const f = rangerForslag({ plan, laerte: [['håndkle', 'frottéklut']] });
+  assert.equal(f[0].ord, 'frottéklut');
+});

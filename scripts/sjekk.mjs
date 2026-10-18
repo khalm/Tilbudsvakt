@@ -11,7 +11,7 @@
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { utvid, passer, lesOnske, butikkOk, liste as kommaliste, brett } from '../lib/matcher.js';
-import { rangerForslag, hentOrdboker } from '../lib/forslag.js';
+import { rangerForslag, hentOrdboker, laerFraOnsker } from '../lib/forslag.js';
 
 const VERSJON = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 const REPO = process.env.GITHUB_REPOSITORY ?? 'khalm/tilbudsvakt';
@@ -253,6 +253,8 @@ async function main() {
     kassalapp: { status: KASSAL_KEY ? 'ok' : 'mangler nøkkel', navn: 'Kassalapp (dagligvarer)' },
   };
   const resultat = [];
+  // Synonymer du har lagt til på ett ønske foreslås for lignende ønsker senere.
+  const laerte = laerFraOnsker(testsok ? await hentOnsker().catch(() => []) : onsker);
 
   for (const onske of onsker) {
     const plan = utvid(onske);
@@ -300,7 +302,7 @@ async function main() {
     console.log(`#${onske.nr} ${onske.tittel}: ${liste.length} treff (${nye.length} nye) – søkte på ${termer.join(', ')}`);
 
     const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
-    const forslag = rangerForslag({ plan, ordbok, avviste });
+    const forslag = rangerForslag({ plan, ordbok, avviste, laerte: laerte.filter((g) => brett(g[0]) !== brett(onske.tittel)) });
     resultat.push({ ...onske, termer: plan.termer, unnga: plan.unnga, forslag, funn: liste });
     if (testsok) {
       console.log(`Unngår: ${plan.unnga.join(', ') || '–'}`);
@@ -316,7 +318,7 @@ async function main() {
   for (const [k, d] of Object.entries(sett)) if (d < grense) delete sett[k];
   for (const [k, v] of Object.entries(historikk)) if (!v.length || v[v.length - 1][0] < grense) delete historikk[k];
 
-  await skrivJson('funn.json', { versjon: VERSJON, oppdatert: nå.toISOString(), kilder, onsker: resultat });
+  await skrivJson('funn.json', { versjon: VERSJON, oppdatert: nå.toISOString(), kilder, laerte, onsker: resultat });
   await skrivJson('sett.json', sett);
   await skrivJson('historikk.json', historikk);
 }

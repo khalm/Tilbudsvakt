@@ -33,7 +33,7 @@ const T = {
     venter: 'Sjekker tilbud nå … du får beskjed her og i GitHub-appen så snart det er klart (vanligvis 1–2 minutter).',
     forslagTittel: 'Forslag til flere søkeord (mest sannsynlige først)', forslagHjelp: 'Trykk for å velge.',
     leggTilValgte: 'Søk også etter valgte', unngaValgte: 'Unngå valgte',
-    forslagSkjema: 'Kanskje også:', kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', tilbud: 'i tilbud' },
+    forslagSkjema: 'Kanskje også:', kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
     varselTittel: (o) => `Tilbud på ${o}`, varselTekst: (n, p) => `${n} tilbud nå – billigst ${p}`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
     tilbud: (n) => (n === 1 ? '1 tilbud' : `${n} tilbud`),
@@ -72,7 +72,7 @@ const T = {
     venter: 'Checking offers now … you’ll be told here and in the GitHub app as soon as it’s done (usually 1–2 minutes).',
     forslagTittel: 'Suggested extra search words (most likely first)', forslagHjelp: 'Tap to select.',
     leggTilValgte: 'Also search for selected', unngaValgte: 'Ignore selected',
-    forslagSkjema: 'Maybe also:', kilde: { ordbok: 'dictionary', beslektet: 'synonym list', tilbud: 'in offers' },
+    forslagSkjema: 'Maybe also:', kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
     varselTittel: (o) => `Offers on ${o}`, varselTekst: (n, p) => `${n} offers now – cheapest ${p}`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
     tilbud: (n) => (n === 1 ? '1 offer' : `${n} offers`),
@@ -312,7 +312,7 @@ function tegnForhand() {
   if (!tittel) { boks.hidden = true; return; }
   const plan = utvid({ tittel, ekstra, unnga: liste($('#ny-unnga').value) });
   const andre = plan.termer.filter((x) => x !== tittel.toLowerCase());
-  const kanskje = beslektet(plan).slice(0, 8);
+  const kanskje = beslektet(plan, undefined, funn?.laerte ?? []).slice(0, 8).map((x) => x.ord);
   boks.hidden = !andre.length && !kanskje.length;
   $('#forhand-brikker').innerHTML = brikker(andre, 10) + (kanskje.length
     ? `<p class="liten svak hel">${esc(t('forslagSkjema'))}</p>${kanskje.map((k) => `<button type="button" class="brikke valg pluss" data-legg="${esc(k)}">+ ${esc(k)}</button>`).join('')}`

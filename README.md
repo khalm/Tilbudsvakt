@@ -30,7 +30,19 @@ Håndklær, teskjeer, ved, kaffe, kattemat – både dagligvarer og alt annet.
 | Skrivefeil | håndklde → håndkle |
 | Unngå-ord | «Unngå: papir» fjerner tørkepapir |
 
-Mangler et synonym? Legg det til i `lib/synonymer.js`, eller skriv det under «Andre ord» på ønsket.
+Mangler et synonym? Appen foreslår flere søkeord under hvert ønske, **mest sannsynlige først**:
+1. Ord du selv har lagt til på lignende ønsker tidligere (lært)
+2. Synonymer fra norsk Wiktionary og ConceptNet
+3. Nabogrupper i synonymlisten (badelaken → strandlaken) og samme siste ledd (teskje → spiseskje)
+
+Trykk på forslagene du vil ha og velg «Søk også etter valgte» eller «Unngå valgte». Appen åpner et lite
+issue med etiketten `ønske-endring`, sjekken oppdaterer ønsket og lukker det automatisk.
+Du kan også legge ord rett inn i `lib/synonymer.js`, eller under «Andre ord» på ønsket.
+
+## Beskjed med en gang
+
+Når du legger til et ønske, sjekkes tilbudene straks (tar 1–2 minutter). Finnes det allerede tilbud,
+får du kommentar på ønsket i GitHub-appen, og hvis appen er åpen også et varsel på telefonen.
 
 ## Felt i et ønske (issue-teksten)
 
