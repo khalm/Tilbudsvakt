@@ -186,7 +186,13 @@ async function api(req, env, url) {
     }
     if (req.method === 'DELETE') {
       bruker.onsker.splice(i, 1);
-      await skrivBruker(env, id, bruker);
+      if (!bruker.onsker.length && !Object.keys(bruker.push ?? {}).length) {
+        // Tom bruker uten telefoner: rydd bort alt.
+        await env.TILBUD.delete(`u:${id}`);
+        await env.TILBUD.delete(`f:${id}`);
+      } else {
+        await skrivBruker(env, id, bruker);
+      }
       return json({ ok: true });
     }
   }
