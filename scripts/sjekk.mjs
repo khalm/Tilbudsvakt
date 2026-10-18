@@ -238,7 +238,13 @@ async function main() {
       }
     }
 
-    const liste = [...funn.values()].sort((a, b) => (a.pris ?? 1e9) - (b.pris ?? 1e9));
+    // Samme vare i samme butikk til samme pris kommer ofte fra flere aviser: vis den én gang.
+    const unike = new Map();
+    for (const t of funn.values()) {
+      const k = `${t.tittel.toLowerCase().replace(/\s+/g, ' ').trim()}|${t.butikk.toLowerCase()}|${t.pris}`;
+      if (!unike.has(k)) unike.set(k, t);
+    }
+    const liste = [...unike.values()].sort((a, b) => (a.pris ?? 1e9) - (b.pris ?? 1e9));
     const nye = liste.filter((t) => !sett[`${onske.nr}|${t.id}|${t.pris}`]);
     for (const t of liste) sett[`${onske.nr}|${t.id}|${t.pris}`] ??= idag;
     await varsle(onske, nye);
