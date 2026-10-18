@@ -40,7 +40,7 @@ const T = {
     testIngen: 'Ingen av ønskene dine ville truffet dette.', testIngenOnsker: 'Legg til et ønske først.',
     testTreff: (o, t, g) => `✔ Treffer «${o}» via «${t}» (${g})`,
     grunner: { eksakt: 'samme ord', 'bøyning': 'bøyningsform', sammensatt: 'sammensatt ord', skrivefeil: 'nesten likt' },
-    flere: (n) => `+${n} til`, faerre: 'vis færre',
+    flere: (n) => `+${n} til`, faerre: 'vis færre', visAlle: (n) => `Vis alle ${n} tilbud`,
     info: `
       <ol>
         <li><b>Skriv det du trenger</b> – «håndkle», «teskjeer», «ved», «kaffe». Du trenger ikke tenke på alle ordene det kan hete: Tilbudsvakt søker også etter synonymer (håndklede, håndduk, håndklær), bøyninger (teskje/teskjeer) og sammensatte ord (badehåndkle, bjørkeved), men ikke ting som bare ligner (håndklestativ, vedovn).</li>
@@ -74,7 +74,7 @@ const T = {
     testIngen: 'None of your wishes would match this.', testIngenOnsker: 'Add a wish first.',
     testTreff: (o, t, g) => `✔ Matches “${o}” via “${t}” (${g})`,
     grunner: { eksakt: 'same word', 'bøyning': 'inflected form', sammensatt: 'compound word', skrivefeil: 'near match' },
-    flere: (n) => `+${n} more`, faerre: 'show fewer',
+    flere: (n) => `+${n} more`, faerre: 'show fewer', visAlle: (n) => `Show all ${n} offers`,
     info: `
       <ol>
         <li><b>Type what you need</b>, ideally in Norwegian. Tilbudsvakt also searches synonyms (håndklede, håndduk, håndklær), inflections and compound words (badehåndkle, bjørkeved), but not things that merely look similar (håndklestativ, vedovn).</li>
@@ -205,7 +205,8 @@ function tegnOnsker() {
         </header>
         <div class="brikker">${brikker(plan.termer.filter((x) => x !== o.tittel.toLowerCase()))}</div>
         ${liste.length
-          ? `<ul class="tilbudsliste">${liste.map(tilbudHtml).join('')}</ul>`
+          ? `<ul class="tilbudsliste">${liste.slice(0, 6).map(tilbudHtml).join('')}</ul>${liste.length > 6
+              ? `<details class="flere-tilbud"><summary>${esc(t('visAlle')(liste.length))}</summary><ul class="tilbudsliste">${liste.slice(6).map(tilbudHtml).join('')}</ul></details>` : ''}`
           : `<p class="liten svak">${esc(r ? t('ingenTilbud') : t('venter'))}</p>`}
         <div class="handlinger">
           <a class="knapp tekst" href="${esc(issue)}" target="_blank" rel="noopener">${esc(t('rediger'))}</a>

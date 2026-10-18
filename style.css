@@ -149,3 +149,4 @@ input:focus { outline: none; border-color: var(--merke); box-shadow: 0 0 0 3px v
 code { font-size: .85em; background: var(--bg); padding: 1px 5px; border-radius: 5px; }
 
 .bunn { text-align: center; color: var(--svak); font-size: .85rem; padding: 8px 16px 28px; }
+.flere-tilbud summary { cursor: pointer; color: var(--merke); font-weight: 600; font-size: .9rem; margin-top: 10px; }

@@ -164,8 +164,11 @@ function linje(t) {
 
 async function varsle(onske, nye) {
   if (TORR() || !nye.length) return;
-  const tekst = [`🔔 **${nye.length === 1 ? 'Nytt tilbud' : `${nye.length} nye tilbud`} på ${onske.tittel}**`, '', ...nye.slice(0, 15).map(linje)];
-  if (nye.length > 15) tekst.push('', `…og ${nye.length - 15} til. Se alle i [Tilbudsvakt](${APP_URL}).`);
+  // Maks tre per butikk (nettbutikker har ofte mange varianter av samme vare), billigst først.
+  const perButikk = {};
+  const utvalg = nye.filter((t) => (perButikk[t.butikk] = (perButikk[t.butikk] ?? 0) + 1) <= 3).slice(0, 15);
+  const tekst = [`🔔 **${nye.length === 1 ? 'Nytt tilbud' : `${nye.length} nye tilbud`} på ${onske.tittel}**`, '', ...utvalg.map(linje)];
+  if (nye.length > utvalg.length) tekst.push('', `…og ${nye.length - utvalg.length} til. Se alle i [Tilbudsvakt](${APP_URL}).`);
   tekst.push('', `_Lukk dette ønsket når du har kjøpt det, så slutter varslene._`);
   if (GH_TOKEN) {
     await gh(`/issues/${onske.nr}/comments`, { method: 'POST', body: JSON.stringify({ body: tekst.join('\n') }) })
@@ -214,7 +217,9 @@ async function main() {
       if (!butikkOk(t.butikk, onske.butikker)) return;
       if (onske.makspris && t.pris != null && t.pris > onske.makspris) return;
       // Tittelen først; kundeaviser har ofte merkenavn i tittelen og varen i beskrivelsen.
-      const m = passer(t.tittel, plan) ?? (t.kilde === 'tjek' ? passer(`${t.tittel} ${t.beskrivelse}`, plan) : null);
+      // Beskrivelsen brukes bare når tittelen er et kort merkenavn ("Lano", "Pierre Robert").
+      const kortTittel = t.tittel.trim().split(/\s+/).length <= 2;
+      const m = passer(t.tittel, plan) ?? (t.kilde === 'tjek' && kortTittel ? passer(`${t.tittel} ${t.beskrivelse}`, plan) : null);
       if (!m) return;
       if (t.kilde === 'kassalapp' && !vurderKassal(t, historikk)) return;
       delete t._historikk;
