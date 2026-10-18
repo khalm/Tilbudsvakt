@@ -215,3 +215,15 @@ button.brikke { font: inherit; font-size: .8rem; border: 1.5px solid transparent
   flex: none; border: 1.5px solid #fff; background: none; color: #fff; font: inherit; font-weight: 700;
   border-radius: 10px; padding: 6px 12px; cursor: pointer;
 }
+
+.historikk { margin-top: 4px; }
+.historikk summary { cursor: pointer; font-size: .82rem; font-weight: 600; color: var(--merke); padding: 4px 0; }
+.historikk-innhold, .andre-butikker { margin-top: 4px; }
+.spark { display: block; max-width: 320px; margin: 4px 0; }
+.spark-linje { stroke: var(--merke); stroke-width: 2; stroke-linejoin: round; }
+.spark-lav { stroke: var(--linje); stroke-width: 1; stroke-dasharray: 3 3; }
+.spark-lavpunkt { fill: var(--merke); }
+.spark-naa { fill: var(--signal); stroke: var(--flate); stroke-width: 2; }
+.andre { list-style: none; padding: 0; margin: 4px 0 0; font-size: .85rem; max-width: 320px; }
+.andre li { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--linje); }
+.andre li.denne { font-weight: 700; }

@@ -1,8 +1,9 @@
 import { utvid, passer, liste, brett, butikkBlokkert } from './lib/matcher.js';
 import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
+import { oppsummer, sparklinje, fraKassalBulk, slaSammen } from './lib/historikk.js';
 
-const VERSJON = '2.1.0';
+const VERSJON = '2.2.0';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
@@ -43,6 +44,10 @@ const T = {
     kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 tilbud' : `${n} tilbud`} på «${o}» nå – billigst ${p}.`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
+    prishistorikk: '📈 Prishistorikk', ingenHistorikk: 'Ingen prishistorikk ennå. Tilbudsvakt samler den fra nå av, så den blir bedre for hver uke.',
+    lavest: 'Laveste', hoyest: 'Høyeste', vanligPris: 'Vanlig pris', periode: (a, b) => `${a} – ${b}`,
+    naaLavest: '✔ Laveste pris Tilbudsvakt har sett', settTilbud: (n, d) => `Sett på tilbud ${n} ${n === 1 ? 'gang' : 'ganger'} siden ${d}`,
+    andreButikker: 'Pris i andre butikker nå', henterPriser: 'Henter priser …', ingenAndre: 'Fant ikke priser i andre butikker.',
     blokkTittel: 'Butikker du ikke vil se', blokkHjelp: 'Tilbud fra disse butikkene vises ikke, og du får ikke varsel om dem.',
     blokkPh: 'Butikknavn, f.eks. Rema 1000', blokkTom: 'Ingen butikker er skjult.',
     skjulButikk: 'Ikke vis tilbud fra denne butikken i framtiden', skjult: (b) => `Viser ikke lenger tilbud fra ${b}.`, angre: 'Angre',
@@ -95,6 +100,10 @@ const T = {
     kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 offer' : `${n} offers`} on “${o}” now – cheapest ${p}.`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
+    prishistorikk: '📈 Price history', ingenHistorikk: 'No price history yet. Tilbudsvakt collects it from now on, so it gets better every week.',
+    lavest: 'Lowest', hoyest: 'Highest', vanligPris: 'Usual price', periode: (a, b) => `${a} – ${b}`,
+    naaLavest: '✔ Lowest price Tilbudsvakt has seen', settTilbud: (n, d) => `Seen on offer ${n} ${n === 1 ? 'time' : 'times'} since ${d}`,
+    andreButikker: 'Price in other stores now', henterPriser: 'Fetching prices …', ingenAndre: 'No prices found in other stores.',
     blokkTittel: 'Stores you don’t want to see', blokkHjelp: 'Offers from these stores are hidden and you won’t be notified about them.',
     blokkPh: 'Store name, e.g. Rema 1000', blokkTom: 'No stores are hidden.',
     skjulButikk: 'Don’t show offers from this store in the future', skjult: (b) => `No longer showing offers from ${b}.`, angre: 'Undo',
@@ -275,6 +284,11 @@ function tilbudHtml(x) {
         <div class="tilbud-meta">${esc(x.butikk)}${periode ? ` · ${esc(periode)}` : ''}${x.merknad ? ` · ${esc(x.merknad)}` : ''}</div>
         ${x.traff ? `<div class="tilbud-meta svak">${esc(t('viaSynonym')(x.traff))}</div>` : ''}
         ${lenke ? `<a class="lenke" href="${esc(lenke)}" target="_blank" rel="noopener">${esc(t('se'))} ↗</a>` : ''}
+        <details class="historikk" data-tilbud="${esc(x.id)}">
+          <summary>${esc(t('prishistorikk'))}</summary>
+          <div class="historikk-innhold">${historikkHtml(x)}</div>
+          ${x.ean ? `<div class="andre-butikker" data-ean="${esc(x.ean)}"></div>` : ''}
+        </details>
         <button type="button" class="skjul-butikk" data-skjul="${esc(x.butikk)}">🚫 ${esc(t('skjulButikk'))}</button>
       </div>
       <div class="pris">
@@ -283,6 +297,48 @@ function tilbudHtml(x) {
         ${rabatt > 0 ? `<div class="rabatt">−${rabatt}%</div>` : ''}
       </div>
     </li>`;
+}
+
+function historikkHtml(x, spor = x.spor ?? []) {
+  if (!spor.length) return `<p class="liten svak">${esc(t('ingenHistorikk'))}</p>`;
+  const o = oppsummer(spor, x.pris);
+  const linjer = [];
+  if (x.kilde === 'tjek') linjer.push(t('settTilbud')(o.antall, dato(o.fra)));
+  else linjer.push(t('periode')(dato(o.fra), dato(o.til)));
+  const tall = [
+    `${t('lavest')}: <b>${esc(kr(o.lavest))}</b> (${esc(dato(o.lavestDato))})`,
+    `${t('hoyest')}: ${esc(kr(o.hoyest))}`,
+    o.vanlig != null && x.kilde !== 'tjek' ? `${t('vanligPris')}: ${esc(kr(o.vanlig))}` : '',
+  ].filter(Boolean).join(' · ');
+  return `
+    ${sparklinje(spor, { naa: x.pris })}
+    <p class="liten">${tall}</p>
+    <p class="liten svak">${esc(linjer.join(' · '))}</p>
+    ${o.naaErLavest && o.antall > 1 ? `<p class="liten ok">${esc(t('naaLavest'))}</p>` : ''}`;
+}
+
+const bulkCache = new Map();
+async function visAndreButikker(boks, x) {
+  if (boks.dataset.lastet) return;
+  boks.dataset.lastet = '1';
+  boks.innerHTML = `<p class="liten svak"><span class="spinner" aria-hidden="true"></span> ${esc(t('henterPriser'))}</p>`;
+  try {
+    if (!bulkCache.has(x.ean)) bulkCache.set(x.ean, fraKassalBulk(await api(`historikk?ean=${encodeURIComponent(x.ean)}`)));
+    const b = bulkCache.get(x.ean);
+    // Lengre historikk for samme butikk (90 dager) erstatter den korte.
+    const egen = b.perButikk[x.butikk];
+    if (egen?.length > (x.spor?.length ?? 0)) {
+      boks.parentElement.querySelector('.historikk-innhold').innerHTML = historikkHtml(x, slaSammen(egen, x.spor));
+    }
+    const andre = b.naa.filter((s) => !butikkBlokkert(s.butikk, blokkert));
+    boks.innerHTML = andre.length
+      ? `<p class="liten"><b>${esc(t('andreButikker'))}</b></p><ul class="andre">${andre.slice(0, 6).map((s) =>
+        `<li class="${brett(s.butikk) === brett(x.butikk) ? 'denne' : ''}"><span>${esc(s.butikk)}</span><span>${esc(kr(s.pris))}</span></li>`).join('')}</ul>`
+      : `<p class="liten svak">${esc(t('ingenAndre'))}</p>`;
+  } catch {
+    boks.innerHTML = '';
+    delete boks.dataset.lastet;
+  }
 }
 
 function forslagHtml(o, forslag) {
@@ -314,8 +370,10 @@ function redigerHtml(o) {
     </form>`;
 }
 
+const tilbudKart = new Map();
 function tegnOnsker() {
   const boks = $('#onsker');
+  tilbudKart.clear();
   if (!onsker.length) {
     boks.innerHTML = `<p class="tom">${esc(t('tom'))}</p>`;
     return;
@@ -324,6 +382,7 @@ function tegnOnsker() {
     const plan = utvid(o);
     const r = resultatFor(o);
     const liste = r.funn ?? [];
+    for (const x of liste) tilbudKart.set(x.id, x);
     const sjekker = sjekkerNa.has(o.id);
     const meta = [o.makspris ? t('maks')(kr(o.makspris)) : '', o.butikker.length ? t('kun')(o.butikker.join(', ')) : '']
       .filter(Boolean).join(' · ');
@@ -604,6 +663,15 @@ $('#onsker').addEventListener('submit', async (e) => {
     sjekkNa(ny).catch(() => {});
   } catch (err) { visBeskjed(`${t('serverFeil')} (${err.message})`); }
 });
+
+// Hent priser i andre butikker når prishistorikken åpnes (toggle bobler ikke, så lytt i capture-fasen).
+$('#onsker').addEventListener('toggle', (e) => {
+  const d = e.target;
+  if (!d.matches?.('details.historikk') || !d.open) return;
+  const boks = d.querySelector('.andre-butikker');
+  const x = tilbudKart.get(d.dataset.tilbud);
+  if (boks && x?.ean) visAndreButikker(boks, x);
+}, true);
 
 $('#blokkert-liste').addEventListener('click', (e) => {
   const k = e.target.closest('[data-vis]');

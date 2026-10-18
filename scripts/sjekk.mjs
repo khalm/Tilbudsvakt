@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import { utvid, passer, brett } from '../lib/matcher.js';
 import { fraTjek, fraKassal, finnTreff, HISTORIKK_DAGER } from '../lib/tilbud.js';
 import { rangerForslag, hentOrdboker, laerFraOnsker } from '../lib/forslag.js';
+import { leggTil as leggTilSpor, tynn } from '../lib/historikk.js';
 
 const VERSJON = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 const KONFIG = JSON.parse(await readFile(new URL('../config.json', import.meta.url), 'utf8').catch(() => '{}'));
@@ -146,7 +147,7 @@ async function varsle(bruker, onske, nye) {
 }
 
 // ---------- Ett ønske ----------
-async function sjekkOnske(onske, laerte, historikk, blokkert = []) {
+async function sjekkOnske(onske, laerte, historikk, blokkert = [], prisspor = {}) {
   const plan = utvid(onske);
   const termer = plan.termer.slice(0, MAKS_TERMER);
   const alle = [];
@@ -162,6 +163,13 @@ async function sjekkOnske(onske, laerte, historikk, blokkert = []) {
   }
   const avviste = [];
   const funn = finnTreff(alle, onske, plan, { nå, historikk, avviste, blokkert });
+  // Kundeavis-tilbud har ingen historikk i kilden, så Tilbudsvakt fører sin egen (per vare og butikk).
+  for (const t of funn) {
+    if (t.kilde !== 'tjek' || t.pris == null) continue;
+    const k = `${brett(t.tittel)}|${brett(t.butikk)}`;
+    prisspor[k] = leggTilSpor(prisspor[k], idag, t.pris, 365);
+    t.spor = tynn(prisspor[k]);
+  }
   const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
   const forslag = rangerForslag({ plan, ordbok, avviste, laerte: laerte.filter((g) => brett(g[0]) !== brett(onske.tittel)) });
   return { plan, termer, funn, forslag, ordbok, ordbokStatus };
@@ -170,6 +178,7 @@ async function sjekkOnske(onske, laerte, historikk, blokkert = []) {
 // ---------- Hovedløp ----------
 async function main() {
   const historikk = await lesJson('historikk.json', {});
+  const prisspor = await lesJson('prisspor.json', {});
 
   if (TESTSOK) {
     const r = await sjekkOnske({ id: 'test', tittel: TESTSOK, ekstra: [], unnga: [], fjern: [], butikker: [] }, [], historikk);
@@ -193,7 +202,7 @@ async function main() {
     const laerte = laerFraOnsker(bruker.onsker);
     const resultat = [];
     for (const onske of bruker.onsker) {
-      const r = await sjekkOnske(onske, laerte, historikk, bruker.blokkert ?? []);
+      const r = await sjekkOnske(onske, laerte, historikk, bruker.blokkert ?? [], prisspor);
       const prefiks = `${bruker.id}|${onske.id}|`;
       // Første sjekk av et ønske varsler ikke: treffene ble vist i appen da ønsket ble lagt til.
       const forsteSjekk = !sett[`${prefiks}*`];
@@ -216,6 +225,9 @@ async function main() {
   for (const [k, v] of Object.entries(historikk)) if (!v.length || v[v.length - 1][0] < grense) delete historikk[k];
   await skrivJson('sett.json', sett);
   await skrivJson('historikk.json', historikk);
+  const sporGrense = new Date(nå.getTime() - 365 * 864e5).toISOString().slice(0, 10);
+  for (const [k, v] of Object.entries(prisspor)) if (!v.length || v[v.length - 1][0] < sporGrense) delete prisspor[k];
+  await skrivJson('prisspor.json', prisspor);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
