@@ -150,3 +150,24 @@ code { font-size: .85em; background: var(--bg); padding: 1px 5px; border-radius:
 
 .bunn { text-align: center; color: var(--svak); font-size: .85rem; padding: 8px 16px 28px; }
 .flere-tilbud summary { cursor: pointer; color: var(--merke); font-weight: 600; font-size: .9rem; margin-top: 10px; }
+
+.beskjed {
+  position: sticky; top: 0; z-index: 5; max-width: 680px; margin: 0 auto;
+  background: var(--signal); color: #fff; font-weight: 600; padding: 12px 16px;
+  border-radius: 0 0 14px 14px; box-shadow: var(--skygge);
+}
+.forslag { margin-top: 12px; border-top: 1px dashed var(--linje); padding-top: 8px; }
+.forslag summary { cursor: pointer; color: var(--merke); font-weight: 600; font-size: .9rem; }
+.forslag .antall {
+  font-size: .75rem; background: var(--merke-lys); color: var(--merke);
+  padding: 0 7px; border-radius: 99px; margin-left: 4px;
+}
+button.brikke { font: inherit; font-size: .8rem; border: 1.5px solid transparent; cursor: pointer; min-height: 32px; }
+.brikke.valg { background: var(--flate); border-color: var(--linje); color: var(--tekst); }
+.brikke.valg.valgt { background: var(--merke); border-color: var(--merke); color: #fff; }
+.brikke.pluss { border-style: dashed; color: var(--merke); }
+.hel { flex-basis: 100%; margin: 6px 0 0; }
+.handlinger.venstre { justify-content: flex-start; align-items: center; }
+.knapp.liten-knapp { background: var(--merke); color: #fff; border: 0; padding: 8px 14px; min-height: 40px; font-size: .9rem; }
+.knapp:disabled { opacity: .45; cursor: default; }
+@media (prefers-color-scheme: dark) { .knapp.liten-knapp, .brikke.valg.valgt { color: #0b1a14; } }

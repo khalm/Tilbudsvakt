@@ -1,6 +1,7 @@
-import { utvid, passer, lesOnske, liste } from './lib/matcher.js';
+import { utvid, passer, lesOnske, liste, brett } from './lib/matcher.js';
+import { beslektet } from './lib/forslag.js';
 
-const VERSJON = '1.0.0';
+const VERSJON = '1.1.0';
 
 // Repoet appen hører til: utledes fra GitHub Pages-adressen, ellers standard.
 const [EIER, REPO] = (() => {
@@ -13,6 +14,7 @@ const [EIER, REPO] = (() => {
 })();
 const REPO_URL = `https://github.com/${EIER}/${REPO}`;
 const ETIKETT = 'ønske';
+const ENDRING = 'ønske-endring';
 
 // ---------- Tekster ----------
 const T = {
@@ -28,7 +30,12 @@ const T = {
     testPh: 'F.eks. «Frotté håndduk 50x70»', infoTittel: 'Slik virker det',
     tom: 'Ingen ønsker ennå. Skriv noe du trenger over, så følger Tilbudsvakt med for deg.',
     ingenTilbud: 'Ingen tilbud akkurat nå. Du får varsel når noe dukker opp.',
-    venter: 'Nytt ønske – første sjekk kjører nå. Oppdater om et par minutter.',
+    venter: 'Sjekker tilbud nå … du får beskjed her og i GitHub-appen så snart det er klart (vanligvis 1–2 minutter).',
+    forslagTittel: 'Forslag til flere søkeord (mest sannsynlige først)', forslagHjelp: 'Trykk for å velge.',
+    leggTilValgte: 'Søk også etter valgte', unngaValgte: 'Unngå valgte',
+    forslagSkjema: 'Kanskje også:', kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', tilbud: 'i tilbud' },
+    varselTittel: (o) => `Tilbud på ${o}`, varselTekst: (n, p) => `${n} tilbud nå – billigst ${p}`,
+    ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
     tilbud: (n) => (n === 1 ? '1 tilbud' : `${n} tilbud`),
     maks: (p) => `maks ${p}`, kun: (b) => `kun ${b}`,
     rediger: 'Endre', kjopt: 'Kjøpt / fjern', se: 'Se tilbudet', for: 'før', til: 'til', fra: 'fra',
@@ -62,7 +69,12 @@ const T = {
     testPh: 'E.g. “Frotté håndduk 50x70”', infoTittel: 'How it works',
     tom: 'No wishes yet. Type something you need above and Tilbudsvakt will keep watch.',
     ingenTilbud: 'No offers right now. You’ll be notified when something shows up.',
-    venter: 'New wish – the first check is running. Refresh in a couple of minutes.',
+    venter: 'Checking offers now … you’ll be told here and in the GitHub app as soon as it’s done (usually 1–2 minutes).',
+    forslagTittel: 'Suggested extra search words (most likely first)', forslagHjelp: 'Tap to select.',
+    leggTilValgte: 'Also search for selected', unngaValgte: 'Ignore selected',
+    forslagSkjema: 'Maybe also:', kilde: { ordbok: 'dictionary', beslektet: 'synonym list', tilbud: 'in offers' },
+    varselTittel: (o) => `Offers on ${o}`, varselTekst: (n, p) => `${n} offers now – cheapest ${p}`,
+    ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
     tilbud: (n) => (n === 1 ? '1 offer' : `${n} offers`),
     maks: (p) => `max ${p}`, kun: (b) => `only ${b}`,
     rediger: 'Edit', kjopt: 'Bought / remove', se: 'See offer', for: 'was', til: 'until', fra: 'from',
@@ -109,13 +121,63 @@ async function hentJson(url) {
   return r.json();
 }
 
+async function hentFunn() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${EIER}/${REPO}/contents/data/funn.json?ref=main&t=${Date.now()}`,
+      { headers: { Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch {
+    return hentJson(`https://raw.githubusercontent.com/${EIER}/${REPO}/main/data/funn.json?t=${Date.now()}`)
+      .catch(() => hentJson(`data/funn.json?t=${Date.now()}`));
+  }
+}
+
+// ---------- Vent på første sjekk av nye ønsker ----------
+let ventende = hentLagret('ventende') ?? []; // [{ tittel, tid }]
+let pollTimer = null;
+
+function startPolling() {
+  clearTimeout(pollTimer);
+  ventende = ventende.filter((v) => Date.now() - v.tid < 10 * 60e3);
+  lagre('ventende', ventende);
+  if (!ventende.length) return;
+  pollTimer = setTimeout(async () => { await lastInn(); startPolling(); }, 15000);
+}
+
+function sjekkVentende() {
+  if (!ventende.length || !funn?.onsker) return;
+  const sjekket = new Date(funn.oppdatert ?? 0).getTime();
+  for (const v of [...ventende]) {
+    const r = funn.onsker.find((o) => brett(o.tittel) === brett(v.tittel));
+    if (!r || sjekket < v.tid - 60e3) continue;
+    ventende = ventende.filter((x) => x !== v);
+    const billigst = r.funn?.[0];
+    const tekst = r.funn?.length ? t('varselTekst')(r.funn.length, kr(billigst.pris)) : t('ingenNaa')(r.tittel);
+    visBeskjed(r.funn?.length ? `${t('varselTittel')(r.tittel)}: ${tekst}` : tekst);
+    if (r.funn?.length && 'Notification' in window && Notification.permission === 'granted') {
+      navigator.serviceWorker?.ready
+        .then((reg) => reg.showNotification(t('varselTittel')(r.tittel), { body: tekst, icon: 'icon-192.png', tag: `onske-${r.nr}` }))
+        .catch(() => { try { new Notification(t('varselTittel')(r.tittel), { body: tekst, icon: 'icon-192.png' }); } catch {} });
+    }
+  }
+  lagre('ventende', ventende);
+}
+
+function visBeskjed(tekst) {
+  const b = $('#beskjed');
+  b.textContent = tekst;
+  b.hidden = false;
+  clearTimeout(visBeskjed.t);
+  visBeskjed.t = setTimeout(() => { b.hidden = true; }, 12000);
+}
+
 async function lastInn() {
   utenNett = false;
   const [iss, f] = await Promise.allSettled([
     hentJson(`https://api.github.com/repos/${EIER}/${REPO}/issues?state=open&labels=${encodeURIComponent(ETIKETT)}&per_page=100`),
-    // raw.githubusercontent er oppdatert straks sjekken har kjørt; lokal kopi som reserve.
-    hentJson(`https://raw.githubusercontent.com/${EIER}/${REPO}/main/data/funn.json?t=${Date.now()}`)
-      .catch(() => hentJson(`data/funn.json?t=${Date.now()}`)),
+    // GitHub-APIet gir alltid ferskeste versjon (raw-adressen kan være noen minutter gammel).
+    hentFunn(),
   ]);
   if (iss.status === 'fulfilled') {
     onsker = iss.value.filter((i) => !i.pull_request).map(lesOnske).filter((o) => o.tittel);
@@ -127,6 +189,7 @@ async function lastInn() {
   if (f.status === 'fulfilled') {
     funn = f.value;
     lagre('funn', funn);
+    sjekkVentende();
   } else {
     funn = hentLagret('funn');
     utenNett = true;
@@ -208,12 +271,38 @@ function tegnOnsker() {
           ? `<ul class="tilbudsliste">${liste.slice(0, 6).map(tilbudHtml).join('')}</ul>${liste.length > 6
               ? `<details class="flere-tilbud"><summary>${esc(t('visAlle')(liste.length))}</summary><ul class="tilbudsliste">${liste.slice(6).map(tilbudHtml).join('')}</ul></details>` : ''}`
           : `<p class="liten svak">${esc(r ? t('ingenTilbud') : t('venter'))}</p>`}
+        ${forslagHtml(o, r)}
         <div class="handlinger">
           <a class="knapp tekst" href="${esc(issue)}" target="_blank" rel="noopener">${esc(t('rediger'))}</a>
           <a class="knapp tekst" href="${esc(issue)}#issue-comment-box" target="_blank" rel="noopener">${esc(t('kjopt'))}</a>
         </div>
       </article>`;
   }).join('');
+}
+
+function forslagHtml(o, r) {
+  const f = (r?.forslag ?? []).filter((x) => !o.ekstra.some((e) => brett(e) === brett(x.ord)) && !o.unnga.some((u) => brett(u) === brett(x.ord)));
+  if (!f.length) return '';
+  return `
+    <details class="forslag" data-nr="${o.nr}">
+      <summary>${esc(t('forslagTittel'))} <span class="antall">${f.length}</span></summary>
+      <p class="liten svak">${esc(t('forslagHjelp'))}</p>
+      <div class="brikker">${f.map((x) => `<button type="button" class="brikke valg" data-ord="${esc(x.ord)}" title="${esc(x.kilder.map((k) => t('kilde')[k] ?? k).join(', '))}">${esc(x.ord)}</button>`).join('')}</div>
+      <div class="handlinger venstre">
+        <button type="button" class="knapp liten-knapp" data-gjor="legg-til" disabled>${esc(t('leggTilValgte'))}</button>
+        <button type="button" class="knapp tekst" data-gjor="unnga" disabled>${esc(t('unngaValgte'))}</button>
+      </div>
+    </details>`;
+}
+
+function bestillEndring(nr, tittel, leggTil, unnga) {
+  const body = [`Ønske: #${nr}`, leggTil.length ? `Legg til: ${leggTil.join(', ')}` : '', unnga.length ? `Unngå: ${unnga.join(', ')}` : '']
+    .filter(Boolean).join('\n');
+  const ord = [...leggTil, ...unnga].join(', ');
+  const p = new URLSearchParams({ title: `${leggTil.length ? 'Søk også etter' : 'Unngå'} «${ord}» på «${tittel}»`, body, labels: ENDRING });
+  window.open(`${REPO_URL}/issues/new?${p}`, '_blank', 'noopener');
+  ventende.push({ tittel, tid: Date.now() });
+  startPolling();
 }
 
 function tegnForhand() {
@@ -223,8 +312,11 @@ function tegnForhand() {
   if (!tittel) { boks.hidden = true; return; }
   const plan = utvid({ tittel, ekstra, unnga: liste($('#ny-unnga').value) });
   const andre = plan.termer.filter((x) => x !== tittel.toLowerCase());
-  boks.hidden = !andre.length;
-  $('#forhand-brikker').innerHTML = brikker(andre, 10);
+  const kanskje = beslektet(plan).slice(0, 8);
+  boks.hidden = !andre.length && !kanskje.length;
+  $('#forhand-brikker').innerHTML = brikker(andre, 10) + (kanskje.length
+    ? `<p class="liten svak hel">${esc(t('forslagSkjema'))}</p>${kanskje.map((k) => `<button type="button" class="brikke valg pluss" data-legg="${esc(k)}">+ ${esc(k)}</button>`).join('')}`
+    : '');
 }
 
 function tegnTest() {
@@ -247,10 +339,13 @@ function oversett() {
   $('#sprak').textContent = sprak === 'en' ? 'NO' : 'EN';
 }
 
+let sistTegnet = '';
 function tegn() {
   oversett();
   tegnStatus();
-  tegnOnsker();
+  // Tegn kortene bare når noe faktisk er endret, så valgte forslag og åpne lister ikke nullstilles.
+  const nokkel = JSON.stringify([sprak, onsker, funn?.oppdatert, funn?.onsker?.length]);
+  if (nokkel !== sistTegnet) { sistTegnet = nokkel; tegnOnsker(); }
   tegnForhand();
   tegnTest();
 }
@@ -273,11 +368,42 @@ $('#ny-form').addEventListener('submit', (e) => {
     '<!-- Tilbudsvakt: du kan endre linjene over når som helst. Felt: Makspris, Andre ord, Unngå, Butikker. Lukk ønsket når du har kjøpt det. -->',
   ].join('\n');
   const p = new URLSearchParams({ title: tittel, body, labels: ETIKETT });
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
   window.open(`${REPO_URL}/issues/new?${p}`, '_blank', 'noopener');
+  ventende.push({ tittel, tid: Date.now() });
+  startPolling();
+  visBeskjed(t('venter'));
   e.target.reset();
   tegnForhand();
-  // Hent på nytt når brukeren kommer tilbake fra GitHub.
-  setTimeout(lastInn, 4000);
+});
+
+$('#forhand-brikker').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-legg]');
+  if (!b) return;
+  const felt = $('#ny-ekstra');
+  const ordene = liste(felt.value);
+  if (!ordene.some((x) => brett(x) === brett(b.dataset.legg))) ordene.push(b.dataset.legg);
+  felt.value = ordene.join(', ');
+  felt.closest('details').open = true;
+  tegnForhand();
+});
+
+$('#onsker').addEventListener('click', (e) => {
+  const boks = e.target.closest('.forslag');
+  if (!boks) return;
+  const valg = e.target.closest('.valg');
+  if (valg) {
+    valg.classList.toggle('valgt');
+    valg.setAttribute('aria-pressed', valg.classList.contains('valgt'));
+  }
+  const valgte = [...boks.querySelectorAll('.valg.valgt')].map((x) => x.dataset.ord);
+  boks.querySelectorAll('[data-gjor]').forEach((k) => { k.disabled = !valgte.length; });
+  const gjor = e.target.closest('[data-gjor]');
+  if (gjor && valgte.length) {
+    const nr = Number(boks.dataset.nr);
+    const o = onsker.find((x) => x.nr === nr);
+    bestillEndring(nr, o?.tittel ?? '', gjor.dataset.gjor === 'legg-til' ? valgte : [], gjor.dataset.gjor === 'unnga' ? valgte : []);
+  }
 });
 
 ['#ny-ord', '#ny-ekstra', '#ny-unnga'].forEach((s) => $(s).addEventListener('input', tegnForhand));
@@ -297,7 +423,7 @@ $('#repo-lenke').href = REPO_URL;
 funn = hentLagret('funn');
 onsker = hentLagret('onsker') ?? [];
 tegn();
-lastInn();
+lastInn().then(startPolling);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});

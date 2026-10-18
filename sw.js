@@ -1,6 +1,6 @@
 // Tilbudsvakt service worker: appen virker uten nett, data hentes ferskt når mulig.
-const CACHE = 'tilbudsvakt-v1.0.0';
-const SKALL = ['./', 'index.html', 'style.css', 'app.js', 'lib/matcher.js', 'lib/synonymer.js',
+const CACHE = 'tilbudsvakt-v1.1.0';
+const SKALL = ['./', 'index.html', 'style.css', 'app.js', 'lib/matcher.js', 'lib/synonymer.js', 'lib/forslag.js',
   'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
