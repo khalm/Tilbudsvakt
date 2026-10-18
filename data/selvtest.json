@@ -1,0 +1,23 @@
+{
+  "tid": "2026-10-18T21:25:44.754Z",
+  "ord": "kaffe",
+  "logg": [
+    "POST onsker → 201",
+    "GET sok?kilde=tjek&q=kaffe → 200",
+    "GET sok?kilde=kassal&q=kaffe → 200",
+    "GET admin/brukere → 200",
+    "DELETE onsker/3yr8p8zmsf → 200"
+  ],
+  "tjekTilbud": 17,
+  "kassalProdukter": 60,
+  "treff": 10,
+  "eksempler": [
+    "34.9 ALI FILTERMALT/KOKMALT (KIWI)",
+    "34.9 UTVALGT KJELDSBERG KAFFE (REMA 1000)",
+    "34.9 ALI KAFFE (KIWI)",
+    "39.9 Friele frokostkaffe (Extra)",
+    "42.9 Ali kaffe (SPAR)"
+  ],
+  "adminOk": true,
+  "appHarVersjon": "v2.0.0"
+}
