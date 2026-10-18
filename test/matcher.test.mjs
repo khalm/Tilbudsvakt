@@ -29,9 +29,9 @@ test('teskje treffer flertall og kaffeskje', () => {
 
 test('ved: sammensatt treffer, vedovn gjør ikke', () => {
   const p = plan('ved');
-  for (const t of ['Bjørkeved 40 liter', 'Storsekk ved 1000L', 'Blandingsved', 'Kubber av bjørk'])
+  for (const t of ['Bjørkeved 40 liter', 'Storsekk ved 1000L', 'Blandingsved', 'Kubber av bjørk', 'BJØRKEVED', 'Bjørkeveden'])
     assert.ok(treff(t, p), t);
-  for (const t of ['Vedovn Jøtul', 'Vedkurv i filt', 'Svedbånd', 'Vedlikeholdsspray'])
+  for (const t of ['Vedovn Jøtul', 'Vedkurv i filt', 'Svedbånd', 'Vedlikeholdsspray', 'Rødbeter Skivede 490g', 'ALLE LED KUBBE OG STAKELYS'])
     assert.ok(!treff(t, p), t);
 });
 
