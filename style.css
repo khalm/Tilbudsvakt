@@ -202,3 +202,16 @@ button.brikke { font: inherit; font-size: .8rem; border: 1.5px solid transparent
   background: var(--bg); border: 1px dashed var(--linje); border-radius: 10px; user-select: all;
 }
 .knapp:disabled { opacity: .45; cursor: default; }
+
+.skjul-butikk {
+  display: block; margin-top: 4px; padding: 6px 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: .78rem; color: var(--svak); text-align: left;
+}
+.skjul-butikk:hover, .skjul-butikk:focus-visible { color: var(--signal); text-decoration: underline; }
+.beskjed { display: flex; align-items: center; gap: 12px; }
+.beskjed[hidden] { display: none; }
+#beskjed-tekst { flex: 1; }
+.beskjed-knapp {
+  flex: none; border: 1.5px solid #fff; background: none; color: #fff; font: inherit; font-weight: 700;
+  border-radius: 10px; padding: 6px 12px; cursor: pointer;
+}

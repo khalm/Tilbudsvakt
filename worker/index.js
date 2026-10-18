@@ -94,7 +94,7 @@ async function admin(req, env, sti) {
       const l = await env.TILBUD.list({ prefix: 'u:', cursor });
       for (const k of l.keys) {
         const b = await env.TILBUD.get(k.name, 'json');
-        if (b) ut.push({ id: k.name.slice(2), onsker: b.onsker ?? [], push: b.push ?? {} });
+        if (b) ut.push({ id: k.name.slice(2), onsker: b.onsker ?? [], push: b.push ?? {}, blokkert: b.blokkert ?? [] });
       }
       cursor = l.list_complete ? null : l.cursor;
     } while (cursor);
@@ -157,7 +157,7 @@ async function api(req, env, url) {
 
   if (sti === 'data' && req.method === 'GET') {
     const funn = await env.TILBUD.get(`f:${id}`, 'json');
-    return json({ onsker: bruker?.onsker ?? [], funn: funn ?? null, telefoner: Object.keys(bruker?.push ?? {}).length });
+    return json({ onsker: bruker?.onsker ?? [], blokkert: bruker?.blokkert ?? [], funn: funn ?? null, telefoner: Object.keys(bruker?.push ?? {}).length });
   }
 
   const tekst = ['POST', 'PUT', 'DELETE'].includes(req.method) ? await req.text() : '';
@@ -186,7 +186,7 @@ async function api(req, env, url) {
     }
     if (req.method === 'DELETE') {
       bruker.onsker.splice(i, 1);
-      if (!bruker.onsker.length && !Object.keys(bruker.push ?? {}).length) {
+      if (!bruker.onsker.length && !Object.keys(bruker.push ?? {}).length && !bruker.blokkert?.length) {
         // Tom bruker uten telefoner: rydd bort alt.
         await env.TILBUD.delete(`u:${id}`);
         await env.TILBUD.delete(`f:${id}`);
@@ -195,6 +195,14 @@ async function api(req, env, url) {
       }
       return json({ ok: true });
     }
+  }
+
+  // Butikker brukeren ikke vil se tilbud fra.
+  if (sti === 'blokkert' && req.method === 'PUT') {
+    bruker ??= ny();
+    bruker.blokkert = rensListe(inn.butikker).slice(0, 30);
+    await skrivBruker(env, id, bruker);
+    return json({ blokkert: bruker.blokkert });
   }
 
   if (sti === 'push' && req.method === 'POST') {

@@ -88,3 +88,10 @@ test('fjernede ord søkes ikke etter, men selve ønsket blir', () => {
   assert.ok(treff('Håndklede 50x70', p));
   assert.deepEqual(lesOnske({ number: 1, title: 'x', body: 'Ikke søk etter: håndduk, badelaken' }).fjern, ['håndduk', 'badelaken']);
 });
+
+test('blokkerte butikker', async () => {
+  const { butikkBlokkert } = await import('../lib/matcher.js');
+  assert.ok(butikkBlokkert('HOME-TEX.no', ['home-tex.no']));
+  assert.ok(!butikkBlokkert('Coop Extra', ['Coop']));
+  assert.ok(!butikkBlokkert('Jysk', []));
+});

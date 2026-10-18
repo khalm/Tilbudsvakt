@@ -17,7 +17,7 @@
       <img src="icon.svg" alt="" class="logo" width="40" height="40">
       <div class="merke">
         <h1>Tilbudsvakt</h1>
-        <span class="versjon" id="versjon">v2.0.0</span>
+        <span class="versjon" id="versjon">v2.1.0</span>
       </div>
       <button class="sprak" id="sprak" type="button" aria-label="Bytt språk">EN</button>
     </div>
@@ -25,7 +25,7 @@
     <div class="varsler-rad"><button class="knapp varsel-knapp" id="varsler" type="button" hidden>🔔 Slå på varsler</button></div>
   </header>
 
-  <div id="beskjed" class="beskjed" role="status" hidden></div>
+  <div id="beskjed" class="beskjed" role="status" hidden><span id="beskjed-tekst"></span><button type="button" id="beskjed-knapp" class="beskjed-knapp" hidden></button></div>
   <main>
     <section class="kort legg-til" aria-labelledby="ny-tittel">
       <h2 id="ny-tittel" data-t="nyTittel">Hva trenger du?</h2>
@@ -61,6 +61,16 @@
       <div id="onsker" class="onsker"><p class="tom" data-t="laster">Laster …</p></div>
     </section>
 
+    <section class="kort" aria-labelledby="blokk-tittel">
+      <h2 id="blokk-tittel" data-t="blokkTittel">Butikker du ikke vil se</h2>
+      <p class="liten svak" data-t="blokkHjelp">Tilbud fra disse butikkene vises ikke, og du får ikke varsel om dem.</p>
+      <div class="brikker" id="blokkert-liste"></div>
+      <form id="blokk-form" class="rad synk" autocomplete="off">
+        <input id="ny-blokk" type="text" data-tp="blokkPh" placeholder="Butikknavn, f.eks. Rema 1000">
+        <button type="submit" class="knapp hoved" data-t="leggTil">Legg til</button>
+      </form>
+    </section>
+
     <section class="kort" aria-labelledby="test-tittel">
       <h2 id="test-tittel" data-t="testTittel">Test et produktnavn</h2>
       <p class="liten" data-t="testHjelp">Lim inn navnet på en vare for å se om den ville gitt treff på ønskene dine.</p>
@@ -88,7 +98,7 @@
   </main>
 
   <footer class="bunn">
-    <span id="bunn-versjon">Tilbudsvakt v2.0.0</span> ·
+    <span id="bunn-versjon">Tilbudsvakt v2.1.0</span> ·
     <a id="repo-lenke" href="https://github.com/khalm/tilbudsvakt" target="_blank" rel="noopener">Kildekode</a>
   </footer>
 

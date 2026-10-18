@@ -146,7 +146,7 @@ async function varsle(bruker, onske, nye) {
 }
 
 // ---------- Ett ønske ----------
-async function sjekkOnske(onske, laerte, historikk) {
+async function sjekkOnske(onske, laerte, historikk, blokkert = []) {
   const plan = utvid(onske);
   const termer = plan.termer.slice(0, MAKS_TERMER);
   const alle = [];
@@ -161,7 +161,7 @@ async function sjekkOnske(onske, laerte, historikk) {
     historikk[t.id] = [...kart.entries()].sort();
   }
   const avviste = [];
-  const funn = finnTreff(alle, onske, plan, { nå, historikk, avviste });
+  const funn = finnTreff(alle, onske, plan, { nå, historikk, avviste, blokkert });
   const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
   const forslag = rangerForslag({ plan, ordbok, avviste, laerte: laerte.filter((g) => brett(g[0]) !== brett(onske.tittel)) });
   return { plan, termer, funn, forslag, ordbok, ordbokStatus };
@@ -193,7 +193,7 @@ async function main() {
     const laerte = laerFraOnsker(bruker.onsker);
     const resultat = [];
     for (const onske of bruker.onsker) {
-      const r = await sjekkOnske(onske, laerte, historikk);
+      const r = await sjekkOnske(onske, laerte, historikk, bruker.blokkert ?? []);
       const prefiks = `${bruker.id}|${onske.id}|`;
       // Første sjekk av et ønske varsler ikke: treffene ble vist i appen da ønsket ble lagt til.
       const forsteSjekk = !sett[`${prefiks}*`];

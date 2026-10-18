@@ -1,8 +1,8 @@
-import { utvid, passer, liste, brett } from './lib/matcher.js';
+import { utvid, passer, liste, brett, butikkBlokkert } from './lib/matcher.js';
 import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
 
-const VERSJON = '2.0.0';
+const VERSJON = '2.1.0';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
@@ -43,6 +43,10 @@ const T = {
     kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 tilbud' : `${n} tilbud`} på «${o}» nå – billigst ${p}.`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
+    blokkTittel: 'Butikker du ikke vil se', blokkHjelp: 'Tilbud fra disse butikkene vises ikke, og du får ikke varsel om dem.',
+    blokkPh: 'Butikknavn, f.eks. Rema 1000', blokkTom: 'Ingen butikker er skjult.',
+    skjulButikk: 'Ikke vis tilbud fra denne butikken i framtiden', skjult: (b) => `Viser ikke lenger tilbud fra ${b}.`, angre: 'Angre',
+    visIgjen: (b) => `Vis tilbud fra ${b} igjen`,
     varslerPaa: '🔔 Slå på varsler', varslerErPaa: '🔔 Varsler er på',
     varslerBlokkert: 'Varsler er blokkert. Tillat varsler for nettstedet i Chrome-innstillingene.',
     varslerIkkeStottet: 'Denne nettleseren støtter ikke push-varsler. Installer appen fra Chrome-menyen («Legg til på startskjermen»).',
@@ -91,6 +95,10 @@ const T = {
     kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 offer' : `${n} offers`} on “${o}” now – cheapest ${p}.`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
+    blokkTittel: 'Stores you don’t want to see', blokkHjelp: 'Offers from these stores are hidden and you won’t be notified about them.',
+    blokkPh: 'Store name, e.g. Rema 1000', blokkTom: 'No stores are hidden.',
+    skjulButikk: 'Don’t show offers from this store in the future', skjult: (b) => `No longer showing offers from ${b}.`, angre: 'Undo',
+    visIgjen: (b) => `Show offers from ${b} again`,
     varslerPaa: '🔔 Turn on notifications', varslerErPaa: '🔔 Notifications on',
     varslerBlokkert: 'Notifications are blocked. Allow them for this site in Chrome settings.',
     varslerIkkeStottet: 'This browser does not support push notifications. Install the app from the Chrome menu (“Add to Home screen”).',
@@ -118,9 +126,16 @@ const dato = (s) => (s ? new Date(s).toLocaleDateString(sprak === 'en' ? 'en-GB'
 const tidspunkt = (s) => new Date(s).toLocaleString(sprak === 'en' ? 'en-GB' : 'nb-NO', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const trygt = (url) => (/^https?:\/\//i.test(url ?? '') ? url : null);
 
-function visBeskjed(tekst, varighet = 9000) {
+function visBeskjed(tekst, varighet = 9000, handling = null) {
   const b = $('#beskjed');
-  b.textContent = tekst;
+  $('#beskjed-tekst').textContent = tekst;
+  const k = $('#beskjed-knapp');
+  k.hidden = !handling;
+  k.onclick = null;
+  if (handling) {
+    k.textContent = handling.tekst;
+    k.onclick = () => { b.hidden = true; handling.gjor(); };
+  }
   b.hidden = false;
   clearTimeout(visBeskjed.t);
   visBeskjed.t = setTimeout(() => { b.hidden = true; }, varighet);
@@ -158,6 +173,7 @@ async function api(sti, { metode = 'GET', data } = {}) {
 
 // ---------- Tilstand ----------
 let onsker = hentLagret('onsker') ?? [];
+let blokkert = hentLagret('blokkert') ?? [];
 let funn = hentLagret('funn');               // fra planlagt sjekk
 let umiddelbar = hentLagret('umiddelbar') ?? {}; // { onskeId: { tid, funn } } fra sjekk i appen
 let utenNett = false;
@@ -170,6 +186,8 @@ async function lastInn() {
   try {
     const d = await api('data');
     onsker = d.onsker ?? [];
+    blokkert = d.blokkert ?? [];
+    lagre('blokkert', blokkert);
     funn = d.funn ?? null;
     utenNett = false;
     serverFeil = false;
@@ -187,7 +205,8 @@ function resultatFor(o) {
   const lokal = umiddelbar[o.id];
   const serverTid = new Date(funn?.oppdatert ?? 0).getTime();
   const lokalBrukes = lokal && (!fraServer || lokal.tid > serverTid || new Date(o.endret ?? 0).getTime() > serverTid);
-  return { funn: lokalBrukes ? lokal.funn : (fraServer?.funn ?? null), forslag: fraServer?.forslag ?? [] };
+  const liste = lokalBrukes ? lokal.funn : (fraServer?.funn ?? null);
+  return { funn: liste?.filter((x) => !butikkBlokkert(x.butikk, blokkert)) ?? null, forslag: fraServer?.forslag ?? [] };
 }
 
 // ---------- Umiddelbar sjekk (i appen, via Worker-en) ----------
@@ -204,7 +223,7 @@ async function sjekkNa(o) {
       kall.push(api(`sok?kilde=kassal&q=${encodeURIComponent(term)}`).then(fraKassal).catch(() => []));
     }
     const alle = (await Promise.all(kall)).flat();
-    const treff = finnTreff(alle, o, plan);
+    const treff = finnTreff(alle, o, plan, { blokkert });
     umiddelbar[o.id] = { tid: Date.now(), funn: treff };
     lagre('umiddelbar', umiddelbar);
     return treff;
@@ -256,6 +275,7 @@ function tilbudHtml(x) {
         <div class="tilbud-meta">${esc(x.butikk)}${periode ? ` · ${esc(periode)}` : ''}${x.merknad ? ` · ${esc(x.merknad)}` : ''}</div>
         ${x.traff ? `<div class="tilbud-meta svak">${esc(t('viaSynonym')(x.traff))}</div>` : ''}
         ${lenke ? `<a class="lenke" href="${esc(lenke)}" target="_blank" rel="noopener">${esc(t('se'))} ↗</a>` : ''}
+        <button type="button" class="skjul-butikk" data-skjul="${esc(x.butikk)}">🚫 ${esc(t('skjulButikk'))}</button>
       </div>
       <div class="pris">
         <div class="naa">${esc(kr(x.pris))}</div>
@@ -377,10 +397,34 @@ function tegn(tving = false) {
   tegnStatus();
   tegnVarselKnapp();
   // Tegn kortene bare når noe er endret, så valgte forslag og åpne lister ikke nullstilles.
-  const nokkel = JSON.stringify([sprak, onsker, funn?.oppdatert, Object.keys(umiddelbar).length, [...sjekkerNa], redigerer]);
+  const nokkel = JSON.stringify([sprak, onsker, blokkert, funn?.oppdatert, Object.keys(umiddelbar).length, [...sjekkerNa], redigerer]);
   if (tving || nokkel !== sistTegnet) { sistTegnet = nokkel; tegnOnsker(); }
+  tegnBlokkert();
   tegnForhand();
   tegnTest();
+}
+
+function tegnBlokkert() {
+  $('#blokkert-liste').innerHTML = blokkert.length
+    ? blokkert.map((b) => `<span class="brikke fjernbar">${esc(b)}<button type="button" class="kryss" data-vis="${esc(b)}" aria-label="${esc(t('visIgjen')(b))}">×</button></span>`).join('')
+    : `<span class="liten svak">${esc(t('blokkTom'))}</span>`;
+}
+
+async function settBlokkert(ny) {
+  const forrige = blokkert;
+  blokkert = ny;
+  lagre('blokkert', blokkert);
+  tegn(true);
+  try {
+    const svar = await api('blokkert', { metode: 'PUT', data: { butikker: ny } });
+    blokkert = svar.blokkert;
+    lagre('blokkert', blokkert);
+  } catch (err) {
+    blokkert = forrige;
+    lagre('blokkert', blokkert);
+    tegn(true);
+    visBeskjed(`${t('serverFeil')} (${err.message})`);
+  }
 }
 
 // ---------- Endre ønsker ----------
@@ -485,6 +529,16 @@ $('#onsker').addEventListener('click', async (e) => {
   if (!o) return;
   const feilmelding = (err) => visBeskjed(`${t('serverFeil')} (${err.message})`);
 
+  const skjul = e.target.closest('[data-skjul]');
+  if (skjul) {
+    const b = skjul.dataset.skjul;
+    if (!butikkBlokkert(b, blokkert)) {
+      const forrige = [...blokkert];
+      await settBlokkert([...blokkert, b]);
+      visBeskjed(t('skjult')(b), 9000, { tekst: t('angre'), gjor: () => settBlokkert(forrige) });
+    }
+    return;
+  }
   const kryss = e.target.closest('[data-fjern]');
   if (kryss) {
     oppdaterOnske(o, { fjern: [...new Set([...(o.fjern ?? []), kryss.dataset.fjern])] }).catch(feilmelding);
@@ -549,6 +603,18 @@ $('#onsker').addEventListener('submit', async (e) => {
     });
     sjekkNa(ny).catch(() => {});
   } catch (err) { visBeskjed(`${t('serverFeil')} (${err.message})`); }
+});
+
+$('#blokkert-liste').addEventListener('click', (e) => {
+  const k = e.target.closest('[data-vis]');
+  if (k) settBlokkert(blokkert.filter((b) => brett(b) !== brett(k.dataset.vis)));
+});
+$('#blokk-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const navn = $('#ny-blokk').value.trim();
+  if (!navn) return;
+  e.target.reset();
+  if (!butikkBlokkert(navn, blokkert)) settBlokkert([...blokkert, navn]);
 });
 
 ['#ny-ord', '#ny-ekstra', '#ny-unnga'].forEach((s) => $(s).addEventListener('input', tegnForhand));
