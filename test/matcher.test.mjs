@@ -49,6 +49,8 @@ test('fraser: blå håndkle', () => {
 test('dagligvarer: melk, poteter, kaffe', () => {
   assert.ok(treff('TINE Lettmelk 1L', plan('melk')));
   assert.ok(treff('Mjølk 1,75 liter', plan('melk')));
+  assert.ok(!treff('Q sjokolademelk 0,5L', plan('melk')));
+  assert.ok(!treff('Sjokomelk', plan('melk')));
   assert.ok(treff('Mandelpoteter 1 kg', plan('poteter')));
   assert.ok(!treff('Potetgull 250g', plan('poteter')));
   assert.ok(treff('Friele Frokostkaffe filtermalt', plan('kaffe')));

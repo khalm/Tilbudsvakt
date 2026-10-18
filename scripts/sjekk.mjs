@@ -217,9 +217,9 @@ async function main() {
       if (!butikkOk(t.butikk, onske.butikker)) return;
       if (onske.makspris && t.pris != null && t.pris > onske.makspris) return;
       // Tittelen først; kundeaviser har ofte merkenavn i tittelen og varen i beskrivelsen.
-      // Beskrivelsen brukes bare når tittelen er et kort merkenavn ("Lano", "Pierre Robert").
-      const kortTittel = t.tittel.trim().split(/\s+/).length <= 2;
-      const m = passer(t.tittel, plan) ?? (t.kilde === 'tjek' && kortTittel ? passer(`${t.tittel} ${t.beskrivelse}`, plan) : null);
+      // Bare tittelen teller. Beskrivelser i kundeaviser nevner ofte andre varer
+      // ("Potetmos – rør inn melk"), og det ga feiltreff.
+      const m = passer(t.tittel, plan);
       if (!m) return;
       if (t.kilde === 'kassalapp' && !vurderKassal(t, historikk)) return;
       delete t._historikk;
