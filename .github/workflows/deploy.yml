@@ -1,0 +1,84 @@
+name: Publiser appen
+
+on:
+  push:
+    branches: [main]
+    paths: ['index.html', 'app.js', 'style.css', 'sw.js', 'manifest.webmanifest', 'icon*', 'lib/**', 'worker/**', 'wrangler.toml', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publiser
+  cancel-in-progress: false
+
+jobs:
+  publiser:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Finn Cloudflare-konto, workers.dev-adresse og lagring
+        id: cf
+        run: |
+          set -euo pipefail
+          api() { curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" "$@"; }
+          KONTO=$(api https://api.cloudflare.com/client/v4/accounts | jq -r '.result[0].id')
+          [ -n "$KONTO" ] && [ "$KONTO" != "null" ] || { echo "Fant ingen Cloudflare-konto – sjekk CLOUDFLARE_API_TOKEN"; exit 1; }
+          echo "konto=$KONTO" >> "$GITHUB_OUTPUT"
+          echo "CLOUDFLARE_ACCOUNT_ID=$KONTO" >> "$GITHUB_ENV"
+
+          # workers.dev-underdomene (lages første gang)
+          SUB=$(api "https://api.cloudflare.com/client/v4/accounts/$KONTO/workers/subdomain" | jq -r '.result.subdomain // empty')
+          if [ -z "$SUB" ]; then
+            for kandidat in khalm khalm-apps tilbudsvakt-khalm "khalm-$RANDOM"; do
+              SUB=$(api -X PUT "https://api.cloudflare.com/client/v4/accounts/$KONTO/workers/subdomain" -d "{\"subdomain\":\"$kandidat\"}" | jq -r '.result.subdomain // empty')
+              [ -n "$SUB" ] && break
+            done
+          fi
+          echo "Underdomene: $SUB"
+          echo "sub=$SUB" >> "$GITHUB_OUTPUT"
+
+          # KV-lagring for ønskelister
+          KV=$(api "https://api.cloudflare.com/client/v4/accounts/$KONTO/storage/kv/namespaces?per_page=100" | jq -r '.result[] | select(.title=="tilbudsvakt") | .id' | head -1)
+          if [ -z "$KV" ]; then
+            KV=$(api -X POST "https://api.cloudflare.com/client/v4/accounts/$KONTO/storage/kv/namespaces" -d '{"title":"tilbudsvakt"}' | jq -r '.result.id')
+          fi
+          echo "KV: $KV"
+          sed -i "s/^id = .*/id = \"$KV\"/" wrangler.toml
+
+      - name: Bygg appfilene
+        run: |
+          mkdir -p dist
+          cp index.html app.js style.css sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png dist/
+          cp -r lib dist/lib
+
+      - name: Publiser til Cloudflare
+        run: npx --yes wrangler@3 deploy
+
+      - name: Sett hemmeligheter i Worker-en
+        env:
+          KASSALAPP_API_SECRET: ${{ secrets.KASSALAPP_API_SECRET || secrets.KASSALAPP_API_KEY }}
+        run: |
+          ADMIN=$(printf '%s' "$CLOUDFLARE_API_TOKEN:tilbudsvakt-admin" | sha256sum | cut -d' ' -f1)
+          jq -n --arg a "$ADMIN" --arg k "$KASSALAPP_API_SECRET" '{ADMIN_KEY:$a} + (if $k == "" then {} else {KASSALAPP_KEY:$k} end)' > /tmp/hemmelig.json
+          npx --yes wrangler@3 secret bulk /tmp/hemmelig.json
+          rm /tmp/hemmelig.json
+
+      - name: Lagre appadressen
+        run: |
+          URL="https://tilbudsvakt.${{ steps.cf.outputs.sub }}.workers.dev"
+          for i in 1 2 3 4 5 6; do curl -sf "$URL/api/helse" && break; sleep 10; done
+          echo "{\"api\": \"$URL\", \"app\": \"$URL/\"}" > config.json
+          git config user.name "Tilbudsvakt"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config.json
+          git diff --cached --quiet || (git commit -m "Appadresse: $URL" && git pull --rebase --autostash && git push)
+          echo "### Appen ligger på $URL" >> "$GITHUB_STEP_SUMMARY"

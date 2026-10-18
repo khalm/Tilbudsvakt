@@ -1,6 +1,6 @@
 // Tilbudsvakt service worker: appen virker uten nett, data hentes ferskt når mulig.
-const CACHE = 'tilbudsvakt-v1.3.0';
-const SKALL = ['./', 'index.html', 'style.css', 'app.js', 'lib/matcher.js', 'lib/synonymer.js', 'lib/forslag.js',
+const CACHE = 'tilbudsvakt-v2.0.0';
+const SKALL = ['./', 'index.html', 'style.css', 'app.js', 'lib/matcher.js', 'lib/synonymer.js', 'lib/forslag.js', 'lib/tilbud.js',
   'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -13,7 +13,7 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/data/')) return;
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/api/') || url.pathname.endsWith('config.json')) return;
   // Nett først (så nye versjoner kommer med en gang), cache som reserve.
   e.respondWith(fetch(e.request)
     .then((r) => { const kopi = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, kopi)); return r; })

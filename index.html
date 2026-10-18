@@ -17,7 +17,7 @@
       <img src="icon.svg" alt="" class="logo" width="40" height="40">
       <div class="merke">
         <h1>Tilbudsvakt</h1>
-        <span class="versjon" id="versjon">v1.3.0</span>
+        <span class="versjon" id="versjon">v2.0.0</span>
       </div>
       <button class="sprak" id="sprak" type="button" aria-label="Bytt språk">EN</button>
     </div>
@@ -50,7 +50,6 @@
           <label><span data-t="butikker">Bare disse butikkene (tomt = alle)</span>
             <input id="ny-butikker" type="text" data-tp="butikkerPh" placeholder="F.eks. Europris, Jysk, Kiwi"></label>
         </details>
-        <p class="liten hjelp" data-t="leggTilHjelp">Ønsket lagres på GitHub. Trykk «Create» / «Submit new issue» på siden som åpnes, så sjekkes tilbudene med en gang.</p>
       </form>
     </section>
 
@@ -69,6 +68,19 @@
       <div id="test-svar" class="test-svar" aria-live="polite"></div>
     </section>
 
+    <section class="kort" aria-labelledby="synk-tittel">
+      <h2 id="synk-tittel" data-t="synkTittel">Bruk på en annen telefon</h2>
+      <p class="liten" data-t="synkHjelp">Ønskelisten din er knyttet til denne koden. Skriv den inn på en annen telefon for å se den samme listen der.</p>
+      <div class="rad synk">
+        <code id="min-kode" class="kode">…</code>
+        <button type="button" class="knapp tekst" id="kopier-kode" data-t="kopier">Kopier</button>
+      </div>
+      <form id="kode-form" class="rad synk" autocomplete="off">
+        <input id="ny-kode" type="text" inputmode="text" spellcheck="false" data-tp="kodePh" placeholder="Kode fra den andre telefonen">
+        <button type="submit" class="knapp hoved" data-t="bruk">Bruk</button>
+      </form>
+    </section>
+
     <section class="kort info" aria-labelledby="info-tittel">
       <h2 id="info-tittel" data-t="infoTittel">Slik virker det</h2>
       <div id="info-tekst"></div>
@@ -76,8 +88,8 @@
   </main>
 
   <footer class="bunn">
-    <span id="bunn-versjon">Tilbudsvakt v1.3.0</span> ·
-    <a id="repo-lenke" href="https://github.com/khalm/tilbudsvakt" target="_blank" rel="noopener">GitHub</a>
+    <span id="bunn-versjon">Tilbudsvakt v2.0.0</span> ·
+    <a id="repo-lenke" href="https://github.com/khalm/tilbudsvakt" target="_blank" rel="noopener">Kildekode</a>
   </footer>
 
   <script type="module" src="app.js"></script>

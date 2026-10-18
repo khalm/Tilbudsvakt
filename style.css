@@ -186,3 +186,19 @@ button.brikke { font: inherit; font-size: .8rem; border: 1.5px solid transparent
 }
 .kryss:hover, .kryss:focus-visible { opacity: 1; background: rgb(0 0 0 / 8%); }
 .angre { border: 0; background: none; font: inherit; color: var(--svak); text-decoration: line-through; cursor: pointer; padding: 4px; }
+
+.spinner {
+  display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px;
+  border: 2px solid var(--linje); border-top-color: var(--merke); border-radius: 50%;
+  animation: snurr .8s linear infinite;
+}
+@keyframes snurr { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+.rediger { margin-top: 12px; border-top: 1px dashed var(--linje); padding-top: 8px; display: grid; gap: 8px; }
+.rediger label { display: grid; gap: 4px; font-size: .9rem; color: var(--svak); }
+.synk { align-items: center; margin-top: 10px; }
+.kode {
+  flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .95rem; padding: 10px 12px;
+  background: var(--bg); border: 1px dashed var(--linje); border-radius: 10px; user-select: all;
+}
+.knapp:disabled { opacity: .45; cursor: default; }

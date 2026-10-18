@@ -1,33 +1,30 @@
-// Daglig tilbudssjekk for Tilbudsvakt. Kjøres av GitHub Actions.
+// Planlagt tilbudssjekk for Tilbudsvakt. Kjøres av GitHub Actions.
 //
-// 1. Leser ønskelisten (åpne issues med etiketten "ønske").
-// 2. Søker etter hvert ønske og alle synonymene i:
-//    - eTilbudsavis/Tjek (kundeaviser: dagligvare, Europris, Jula, Clas Ohlson ...)
-//    - Kassalapp (dagligvarer med prishistorikk, krever gratis API-nøkkel)
-// 3. Sjekker hvert treff med matcheren (synonymer, bøyninger, sammensatte ord).
-// 4. Skriver data/funn.json som appen viser.
-// 5. Varsler om nye tilbud: kommentar på ønsket (push i GitHub-appen)
-//    og eventuelt ntfy hvis NTFY_TOPIC er satt.
+// 1. Henter alle ønskelister fra Tilbudsvakt-Worker-en (Cloudflare).
+// 2. Søker etter hvert ønske og synonymene i eTilbudsavis/Tjek (kundeaviser)
+//    og Kassalapp (dagligvarer med prishistorikk).
+// 3. Sjekker treffene med matcheren (synonymer, bøyninger, sammensatte ord).
+// 4. Lagrer funn per bruker i Worker-en, som appen viser.
+// 5. Sender push-varsel om nye tilbud til brukerens telefoner.
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { utvid, passer, lesOnske, butikkOk, liste as kommaliste, brett } from '../lib/matcher.js';
+import { createHash } from 'node:crypto';
+import { utvid, passer, brett } from '../lib/matcher.js';
+import { fraTjek, fraKassal, finnTreff, HISTORIKK_DAGER } from '../lib/tilbud.js';
 import { rangerForslag, hentOrdboker, laerFraOnsker } from '../lib/forslag.js';
 
 const VERSJON = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
-const REPO = process.env.GITHUB_REPOSITORY ?? 'khalm/tilbudsvakt';
-const GH_TOKEN = process.env.GITHUB_TOKEN ?? '';
+const KONFIG = JSON.parse(await readFile(new URL('../config.json', import.meta.url), 'utf8').catch(() => '{}'));
+const API = (process.env.API_URL || KONFIG.api || '').replace(/\/$/, '');
+const APP_URL = KONFIG.app || `${API}/`;
+const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN ?? '';
+const ADMIN_KEY = CF_TOKEN ? createHash('sha256').update(`${CF_TOKEN}:tilbudsvakt-admin`).digest('hex') : '';
 const KASSAL_KEY = process.env.KASSALAPP_API_KEY ?? '';
 const NTFY_TOPIC = process.env.NTFY_TOPIC ?? '';
 const VAPID_PRIVAT = process.env.VAPID_PRIVATE_KEY ?? '';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
-const PUSH = 'push-abonnement'; // appen melder fra om telefonen som skal få varsler
-const TORR = () => process.env.DRY_RUN === '1'; // ingen kommentarer/varsler
-const ETIKETT = 'ønske';
-const ENDRING = 'ønske-endring'; // små hjelpe-issues fra appen: «legg til ord på ønske #N»
-const MAKS_TERMER = 10;          // søk per ønske og kilde
-const RABATT_GRENSE = 0.9;       // Kassalapp: minst 10 % under nylig pris
-const HISTORIKK_DAGER = 60;
-const APP_URL = `https://${REPO.split('/')[0].toLowerCase()}.github.io/${REPO.split('/')[1]}/`;
+const TESTSOK = (process.env.TESTSOK ?? '').trim();
+const MAKS_TERMER = 10; // søk per ønske og kilde
 
 const DATA = new URL('../data/', import.meta.url);
 const nå = new Date();
@@ -45,7 +42,7 @@ async function skrivJson(navn, data) {
 async function hent(url, opts = {}, forsok = 3) {
   for (let i = 0; i < forsok; i++) {
     try {
-      const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(20000) });
+      const r = await fetch(url, { ...opts, signal: AbortSignal.timeout(25000) });
       if (r.status === 429 || r.status >= 500) throw new Error(`HTTP ${r.status}`);
       if (!r.ok) throw Object.assign(new Error(`HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`), { endelig: true });
       return r.status === 204 ? null : await r.json();
@@ -56,166 +53,44 @@ async function hent(url, opts = {}, forsok = 3) {
   }
 }
 
-// ---------- GitHub ----------
-const gh = (sti, opts = {}) => hent(`https://api.github.com/repos/${REPO}${sti}`, {
+// ---------- Worker (ønskelister og funn) ----------
+const worker = (sti, opts = {}) => hent(`${API}/api/admin/${sti}`, {
   ...opts,
-  headers: {
-    Accept: 'application/vnd.github+json',
-    'User-Agent': 'tilbudsvakt',
-    ...(GH_TOKEN ? { Authorization: `Bearer ${GH_TOKEN}` } : {}),
-    ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
-  },
+  headers: { Authorization: `Bearer ${ADMIN_KEY}`, 'Content-Type': 'application/json', ...(opts.headers ?? {}) },
 });
 
-async function sikreEtikett() {
-  if (!GH_TOKEN) return;
-  for (const [name, color, description] of [
-    [ETIKETT, '2f9e6e', 'Noe jeg trenger – Tilbudsvakt følger med på tilbud'],
-    [ENDRING, 'c5def5', 'Endring på et ønske fra Tilbudsvakt-appen (lukkes automatisk)'],
-    [PUSH, 'f9d0c4', 'Slår på varsler fra Tilbudsvakt på en telefon (lukkes automatisk)'],
-  ]) {
-    try { await gh(`/labels/${encodeURIComponent(name)}`); }
-    catch {
-      await gh('/labels', { method: 'POST', body: JSON.stringify({ name, color, description }) })
-        .catch((e) => console.warn('Kunne ikke lage etikett:', e.message));
-    }
-  }
-}
-
-/** Legger verdier til en «Felt: a, b»-linje i issue-teksten (lager linjen om den mangler). */
-function leggTilFelt(body, navn, alias, verdier) {
-  if (!verdier.length) return body;
-  const linjer = String(body ?? '').split('\n');
-  const re = new RegExp(`^\\s*(?:${alias})\\s*:(.*)$`, 'i');
-  const i = linjer.findIndex((l) => re.test(l));
-  const gamle = i >= 0 ? kommaliste(linjer[i].match(re)[1]) : [];
-  const alle = [...gamle];
-  for (const v of verdier) if (!alle.some((g) => brett(g) === brett(v))) alle.push(v);
-  const ny = `${navn}: ${alle.join(', ')}`;
-  if (i >= 0) linjer[i] = ny; else linjer.unshift(ny);
-  return linjer.join('\n');
-}
-
-/** Utfører endringer appen har bestilt (legg til søkeord / unngå-ord), og lukker hjelpe-issuet. */
-async function utforEndringer() {
-  if (!GH_TOKEN) return;
-  const liste = await gh(`/issues?state=open&labels=${encodeURIComponent(ENDRING)}&per_page=50`).catch(() => []);
-  for (const e of liste) {
-    const body = String(e.body ?? '');
-    const felt = (n) => { const m = body.match(new RegExp(`^\\s*(?:${n})\\s*:\\s*(.*)$`, 'im')); return m ? m[1].trim() : ''; };
-    const nr = parseInt(felt('ønske|onske|wish').replace(/[^0-9]/g, ''), 10);
-    const leggTil = kommaliste(felt('legg til|andre ord|add'));
-    const fjern = kommaliste(felt('ikke søk etter|fjern|remove'));
-    const unnga = kommaliste(felt('unngå|unnga|avoid'));
-    let svar;
-    try {
-      if (!nr) throw new Error('fant ikke hvilket ønske det gjaldt');
-      const mal = await gh(`/issues/${nr}`);
-      let ny = leggTilFelt(mal.body, 'Andre ord', 'andre ord|ekstra ord|synonymer|also|other words', leggTil);
-      ny = leggTilFelt(ny, 'Unngå', 'unngå|unnga|ikke|avoid|exclude', unnga);
-      ny = leggTilFelt(ny, 'Ikke søk etter', 'ikke søk etter|ikke sok etter|fjern|fjernet|remove', fjern);
-      await gh(`/issues/${nr}`, { method: 'PATCH', body: JSON.stringify({ body: ny }) });
-      svar = `✔ Oppdaterte #${nr}.${leggTil.length ? ` Søker nå også etter: ${leggTil.join(', ')}.` : ''}${unnga.length ? ` Unngår: ${unnga.join(', ')}.` : ''}${fjern.length ? ` Søker ikke lenger etter: ${fjern.join(', ')}.` : ''}`;
-    } catch (err) {
-      svar = `Klarte ikke å oppdatere ønsket: ${err.message}`;
-    }
-    await gh(`/issues/${e.number}/comments`, { method: 'POST', body: JSON.stringify({ body: svar }) }).catch(() => {});
-    await gh(`/issues/${e.number}`, { method: 'PATCH', body: JSON.stringify({ state: 'closed', state_reason: 'completed' }) }).catch(() => {});
-    console.log(svar);
-  }
-}
-
-async function hentOnsker() {
-  const issues = await gh(`/issues?state=open&labels=${encodeURIComponent(ETIKETT)}&per_page=100`);
-  return issues.filter((i) => !i.pull_request).map(lesOnske).filter((o) => o.tittel);
-}
-
-// ---------- Kilde: eTilbudsavis / Tjek ----------
-async function sokTjek(term) {
-  const p = new URLSearchParams({ query: term, country_id: 'NO', limit: '100' });
-  const rå = await hent(`https://api.etilbudsavis.dk/v2/offers/search?${p}`, { headers: { 'User-Agent': 'tilbudsvakt' } });
-  return (rå ?? [])
-    .filter((o) => !o.dealer?.country?.id || o.dealer.country.id === 'NO')
-    .map((o) => ({
-      kilde: 'tjek',
-      id: `tjek:${o.id}`,
-      tittel: o.heading,
-      beskrivelse: o.description ?? '',
-      butikk: o.dealer?.name ?? o.branding?.name ?? 'Ukjent butikk',
-      pris: o.pricing?.price ?? null,
-      forpris: o.pricing?.pre_price ?? null,
-      fra: o.run_from ?? null,
-      til: o.run_till ?? null,
-      bilde: o.images?.view ?? o.images?.thumb ?? null,
-      lenke: o.images?.zoom ?? o.images?.view ?? o.dealer?.website ?? null,
-      merknad: 'Kundeavis',
-    }));
-}
-
-// ---------- Kilde: Kassalapp ----------
-async function sokKassal(term) {
-  const p = new URLSearchParams({ search: term, size: '100', unique: '0' });
-  const rå = await hent(`https://kassal.app/api/v1/products?${p}`, {
-    headers: { Authorization: `Bearer ${KASSAL_KEY}`, Accept: 'application/json', 'User-Agent': 'tilbudsvakt' },
-  });
+// ---------- Kilder (mellomlagret, så like søk fra flere brukere bare gjøres én gang) ----------
+const kilder = {
+  tjek: { status: 'ok', navn: 'eTilbudsavis (kundeaviser)' },
+  kassalapp: { status: KASSAL_KEY ? 'ok' : 'mangler nøkkel', navn: 'Kassalapp (dagligvarer)' },
+};
+const sokCache = new Map();
+async function sok(term) {
+  const k = brett(term);
+  if (sokCache.has(k)) return sokCache.get(k);
   const ut = [];
-  for (const v of rå?.data ?? []) {
-    const pris = typeof v.current_price === 'object' ? v.current_price?.price : v.current_price;
-    if (!Number.isFinite(pris) || pris <= 0) continue;
-    ut.push({
-      kilde: 'kassalapp',
-      id: `kassal:${v.id}`,
-      tittel: v.name,
-      beskrivelse: [v.brand, v.vendor].filter(Boolean).join(' '),
-      butikk: v.store?.name ?? 'Ukjent butikk',
-      pris,
-      forpris: null,
-      fra: null,
-      til: null,
-      bilde: v.image ?? null,
-      lenke: v.url ?? null,
-      merknad: '',
-      _historikk: (v.price_history ?? []).map((h) => [String(h.date).slice(0, 10), Number(h.price)]),
-    });
+  try {
+    const p = new URLSearchParams({ query: term, country_id: 'NO', limit: '100' });
+    ut.push(...fraTjek(await hent(`https://api.etilbudsavis.dk/v2/offers/search?${p}`, { headers: { 'User-Agent': 'tilbudsvakt' } })));
+  } catch (e) { kilder.tjek.status = `feil: ${e.message}`; console.warn('Tjek:', term, e.message); }
+  if (KASSAL_KEY) {
+    try {
+      const p = new URLSearchParams({ search: term, size: '100' });
+      ut.push(...fraKassal(await hent(`https://kassal.app/api/v1/products?${p}`, {
+        headers: { Authorization: `Bearer ${KASSAL_KEY}`, Accept: 'application/json', 'User-Agent': 'tilbudsvakt' },
+      })));
+    } catch (e) { kilder.kassalapp.status = `feil: ${e.message}`; console.warn('Kassalapp:', term, e.message); }
+    await vent(1100); // gratisnøkkel: 60 kall i minuttet
+  } else {
+    await vent(150);
   }
+  sokCache.set(k, ut);
   return ut;
-}
-
-/** Er en Kassalapp-pris et tilbud? Sammenligner med de siste 60 dagene. */
-function vurderKassal(t, historikk) {
-  const grense = new Date(nå.getTime() - HISTORIKK_DAGER * 864e5).toISOString().slice(0, 10);
-  const egen = historikk[t.id] ?? [];
-  const alle = [...t._historikk, ...egen].filter(([d, p]) => d >= grense && Number.isFinite(p) && p > 0);
-  // Oppdater egen historikk (én verdi per dag).
-  const kart = new Map(egen.filter(([d]) => d >= grense));
-  kart.set(idag, t.pris);
-  historikk[t.id] = [...kart.entries()].sort();
-
-  const tidligere = alle.filter(([d, p]) => !(d === idag && p === t.pris)).map(([, p]) => p);
-  if (!tidligere.length) return false;
-  const høyest = Math.max(...tidligere);
-  if (t.pris <= høyest * RABATT_GRENSE) {
-    t.forpris = høyest;
-    t.merknad = `Ned ${Math.round((1 - t.pris / høyest) * 100)} % siste ${HISTORIKK_DAGER} dager`;
-    return true;
-  }
-  return false;
 }
 
 // ---------- Varsler ----------
 const kr = (n) => (n == null ? '' : `${Number(n).toFixed(2).replace('.', ',').replace(',00', ',-')} kr`);
-const dato = (s) => (s ? new Date(s).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', timeZone: 'Europe/Oslo' }) : '');
 
-function linje(t) {
-  const pris = t.pris != null ? `**${kr(t.pris)}**` : '';
-  const før = t.forpris ? ` (før ${kr(t.forpris)})` : '';
-  const når = t.til ? ` · til ${dato(t.til)}` : '';
-  const start = t.fra && new Date(t.fra) > nå ? ` · fra ${dato(t.fra)}` : '';
-  const lenke = t.lenke ? ` · [se tilbudet](${t.lenke})` : '';
-  return `- ${t.tittel} – ${t.butikk}: ${pris}${før}${start}${når}${lenke}`;
-}
-
-// ---------- Push-varsler fra Tilbudsvakt selv (Web Push) ----------
 let webpush = null;
 async function pushKlar() {
   if (!VAPID_PRIVAT) return false;
@@ -228,174 +103,118 @@ async function pushKlar() {
   return true;
 }
 
-/** Sender ett varsel til alle registrerte telefoner. Fjerner abonnement som ikke finnes lenger. */
-async function sendPush(abonnement, data) {
-  if (!(await pushKlar())) return;
-  for (const [nokkel, a] of Object.entries(abonnement)) {
+async function sendPush(bruker, data) {
+  if (!(await pushKlar())) return 0;
+  let sendt = 0;
+  for (const [nokkel, a] of Object.entries(bruker.push ?? {})) {
     try {
       await webpush.sendNotification(a.sub, JSON.stringify(data), { TTL: 24 * 3600, urgency: 'high' });
-      a.sist = idag;
+      sendt++;
     } catch (e) {
-      if (e.statusCode === 404 || e.statusCode === 410) delete abonnement[nokkel];
       console.warn('Push feilet:', e.statusCode ?? e.message);
-    }
-  }
-}
-
-/** Leser nye «slå på varsler»-issues fra appen inn i data/push.json og lukker dem. */
-async function registrerTelefoner(abonnement) {
-  if (!GH_TOKEN) return;
-  const liste = await gh(`/issues?state=open&labels=${encodeURIComponent(PUSH)}&per_page=50`).catch(() => []);
-  for (const i of liste) {
-    let svar;
-    try {
-      const json = String(i.body ?? '').match(/\{[\s\S]*\}/)?.[0];
-      const sub = JSON.parse(json ?? '');
-      if (!sub?.endpoint?.startsWith('https://') || !sub.keys?.p256dh || !sub.keys?.auth) throw new Error('ugyldig abonnement');
-      const nokkel = sub.endpoint.slice(-40);
-      abonnement[nokkel] = { sub: { endpoint: sub.endpoint, keys: sub.keys }, fra: idag, sist: idag };
-      if (await pushKlar()) {
-        await sendPush({ [nokkel]: abonnement[nokkel] }, {
-          tittel: 'Varsler er slått på ✔', tekst: 'Du får beskjed her når noe du trenger kommer på tilbud.', url: APP_URL,
-        });
-        svar = '✔ Varsler er slått på for denne telefonen.';
-      } else {
-        svar = '⚠️ Telefonen er registrert, men nøkkelen `VAPID_PRIVATE_KEY` mangler i repo-secrets, så varsler kan ikke sendes ennå.';
+      if (e.statusCode === 404 || e.statusCode === 410) {
+        await worker(`push/${bruker.id}/${encodeURIComponent(nokkel)}`, { method: 'DELETE' }).catch(() => {});
       }
-    } catch (e) {
-      svar = `Klarte ikke å slå på varsler: ${e.message}`;
     }
-    // Abonnementet ligger nå i data/push.json; fjern det fra issue-teksten.
-    await gh(`/issues/${i.number}`, { method: 'PATCH', body: JSON.stringify({ body: '(registrert)', state: 'closed', state_reason: 'completed' }) }).catch(() => {});
-    await gh(`/issues/${i.number}/comments`, { method: 'POST', body: JSON.stringify({ body: svar }) }).catch(() => {});
-    console.log(svar);
   }
+  return sendt;
 }
 
-async function varsle(onske, nye, abonnement = {}) {
-  if (TORR() || !nye.length) return;
-  // Maks tre per butikk (nettbutikker har ofte mange varianter av samme vare), billigst først.
+async function varsle(bruker, onske, nye) {
+  if (!nye.length) return;
   const perButikk = {};
-  const utvalg = nye.filter((t) => (perButikk[t.butikk] = (perButikk[t.butikk] ?? 0) + 1) <= 3).slice(0, 15);
-  const tekst = [`🔔 **${nye.length === 1 ? 'Nytt tilbud' : `${nye.length} nye tilbud`} på ${onske.tittel}**`, '', ...utvalg.map(linje)];
-  if (nye.length > utvalg.length) tekst.push('', `…og ${nye.length - utvalg.length} til. Se alle i [Tilbudsvakt](${APP_URL}).`);
-  tekst.push('', `_Lukk dette ønsket når du har kjøpt det, så slutter varslene._`);
-  if (GH_TOKEN) {
-    await gh(`/issues/${onske.nr}/comments`, { method: 'POST', body: JSON.stringify({ body: tekst.join('\n') }) })
-      .catch((e) => console.warn(`Kommentar på #${onske.nr} feilet:`, e.message));
-  }
-  if (Object.keys(abonnement).length) {
-    const b = nye[0];
-    await sendPush(abonnement, {
-      tittel: `${nye.length === 1 ? 'Tilbud' : `${nye.length} tilbud`} på ${onske.tittel}`,
-      tekst: nye.slice(0, 3).map((t) => `${t.tittel} – ${t.butikk} ${kr(t.pris)}`).join('\n'),
-      bilde: b.bilde ?? undefined,
-      url: APP_URL,
-      tag: `onske-${onske.nr}`,
-    });
-  }
+  const utvalg = nye.filter((t) => (perButikk[t.butikk] = (perButikk[t.butikk] ?? 0) + 1) <= 2);
+  const b = nye[0];
+  await sendPush(bruker, {
+    tittel: `${nye.length === 1 ? 'Tilbud' : `${nye.length} tilbud`} på ${onske.tittel}`,
+    tekst: utvalg.slice(0, 3).map((t) => `${t.tittel} – ${t.butikk} ${kr(t.pris)}`).join('\n'),
+    bilde: b.bilde ?? undefined,
+    url: APP_URL,
+    tag: `onske-${onske.id}`,
+  });
   if (NTFY_TOPIC) {
-    const billigst = nye[0];
     await hent('https://ntfy.sh/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        topic: NTFY_TOPIC,
-        title: `Tilbud: ${onske.tittel}`,
-        message: nye.slice(0, 5).map((t) => `${t.tittel} – ${t.butikk} ${kr(t.pris)}`).join('\n'),
-        click: APP_URL,
-        tags: ['moneybag'],
-        ...(billigst.bilde ? { attach: billigst.bilde } : {}),
+        topic: NTFY_TOPIC, title: `Tilbud: ${onske.tittel}`, click: APP_URL, tags: ['moneybag'],
+        message: utvalg.slice(0, 5).map((t) => `${t.tittel} – ${t.butikk} ${kr(t.pris)}`).join('\n'),
+        ...(b.bilde ? { attach: b.bilde } : {}),
       }),
     }, 2).catch((e) => console.warn('ntfy feilet:', e.message));
   }
 }
 
+// ---------- Ett ønske ----------
+async function sjekkOnske(onske, laerte, historikk) {
+  const plan = utvid(onske);
+  const termer = plan.termer.slice(0, MAKS_TERMER);
+  const alle = [];
+  for (const term of termer) alle.push(...(await sok(term)));
+
+  // Egen prishistorikk for dagligvarer som passer ønsket (én verdi per dag).
+  const grense = new Date(nå.getTime() - HISTORIKK_DAGER * 864e5).toISOString().slice(0, 10);
+  for (const t of alle) {
+    if (t.kilde !== 'kassalapp' || !passer(t.tittel, plan)) continue;
+    const kart = new Map((historikk[t.id] ?? []).filter(([d]) => d >= grense));
+    if (!kart.has(idag)) kart.set(idag, t.pris);
+    historikk[t.id] = [...kart.entries()].sort();
+  }
+  const avviste = [];
+  const funn = finnTreff(alle, onske, plan, { nå, historikk, avviste });
+  const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
+  const forslag = rangerForslag({ plan, ordbok, avviste, laerte: laerte.filter((g) => brett(g[0]) !== brett(onske.tittel)) });
+  return { plan, termer, funn, forslag, ordbok, ordbokStatus };
+}
+
 // ---------- Hovedløp ----------
 async function main() {
-  const testsok = (process.env.TESTSOK ?? '').trim();
-  await sikreEtikett();
-  if (!testsok) await utforEndringer();
-  const abonnement = await lesJson('push.json', {});
-  if (!testsok) await registrerTelefoner(abonnement);
-  // Testsøk: lat som det finnes ett ønske, vis resultatet i loggen, lagre/varsle ingenting.
-  const onsker = testsok ? [{ nr: 0, tittel: testsok, makspris: null, ekstra: [], unnga: [], butikker: [] }] : await hentOnsker();
-  if (testsok) process.env.DRY_RUN = '1';
-  const sett = await lesJson('sett.json', {});
   const historikk = await lesJson('historikk.json', {});
-  const kilder = {
-    tjek: { status: 'ok', navn: 'eTilbudsavis (kundeaviser)' },
-    kassalapp: { status: KASSAL_KEY ? 'ok' : 'mangler nøkkel', navn: 'Kassalapp (dagligvarer)' },
-  };
-  const resultat = [];
-  // Synonymer du har lagt til på ett ønske foreslås for lignende ønsker senere.
-  const laerte = laerFraOnsker(testsok ? await hentOnsker().catch(() => []) : onsker);
 
-  for (const onske of onsker) {
-    const plan = utvid(onske);
-    const termer = plan.termer.slice(0, MAKS_TERMER);
-    const funn = new Map();
-    const avviste = []; // relevante søketreff som ikke passet – grunnlag for forslag
+  if (TESTSOK) {
+    const r = await sjekkOnske({ id: 'test', tittel: TESTSOK, ekstra: [], unnga: [], fjern: [], butikker: [] }, [], historikk);
+    console.log(`Testsøk «${TESTSOK}»: ${r.funn.length} treff – søkte på ${r.termer.join(', ')}`);
+    await skrivJson('testsok.json', {
+      sok: TESTSOK, tid: nå.toISOString(), kilder, termer: r.plan.termer, unnga: r.plan.unnga,
+      ordbok: r.ordbok, ordbokStatus: r.ordbokStatus, forslag: r.forslag, funn: r.funn,
+    });
+    return;
+  }
 
-    const vurder = (t) => {
-      if (funn.has(t.id)) return;
-      if (t.til && new Date(t.til) < nå) return;
-      if (!butikkOk(t.butikk, onske.butikker)) return;
-      if (onske.makspris && t.pris != null && t.pris > onske.makspris) return;
-      // Tittelen først; kundeaviser har ofte merkenavn i tittelen og varen i beskrivelsen.
-      // Bare tittelen teller. Beskrivelser i kundeaviser nevner ofte andre varer
-      // ("Potetmos – rør inn melk"), og det ga feiltreff.
-      const m = passer(t.tittel, plan);
-      if (!m) { if (avviste.length < 400) avviste.push({ tittel: t.tittel, butikk: t.butikk }); return; }
-      if (t.kilde === 'kassalapp' && !vurderKassal(t, historikk)) return;
-      delete t._historikk;
-      funn.set(t.id, { ...t, traff: m.term, grunn: m.grunn });
-    };
+  if (!API || !ADMIN_KEY) {
+    console.log('Appen er ikke publisert ennå (mangler config.json eller CLOUDFLARE_API_TOKEN). Hopper over.');
+    return;
+  }
+  const brukere = await worker('brukere');
+  const sett = await lesJson('sett.json', {});
+  console.log(`${brukere.length} brukere, ${brukere.reduce((n, b) => n + b.onsker.length, 0)} ønsker.`);
 
-    for (const term of termer) {
-      try { (await sokTjek(term)).forEach(vurder); }
-      catch (e) { kilder.tjek.status = `feil: ${e.message}`; console.warn('Tjek:', term, e.message); }
-      if (KASSAL_KEY) {
-        try { (await sokKassal(term)).forEach(vurder); }
-        catch (e) { kilder.kassalapp.status = `feil: ${e.message}`; console.warn('Kassalapp:', term, e.message); }
-        await vent(1100); // gratisnøkkel: 60 kall i minuttet
-      } else {
-        await vent(200);
-      }
+  for (const bruker of brukere) {
+    const laerte = laerFraOnsker(bruker.onsker);
+    const resultat = [];
+    for (const onske of bruker.onsker) {
+      const r = await sjekkOnske(onske, laerte, historikk);
+      const prefiks = `${bruker.id}|${onske.id}|`;
+      // Første sjekk av et ønske varsler ikke: treffene ble vist i appen da ønsket ble lagt til.
+      const forsteSjekk = !sett[`${prefiks}*`];
+      const nye = r.funn.filter((t) => !sett[`${prefiks}${t.id}|${t.pris}`]);
+      for (const t of r.funn) sett[`${prefiks}${t.id}|${t.pris}`] ??= idag;
+      sett[`${prefiks}*`] = idag;
+      if (!forsteSjekk) await varsle(bruker, onske, nye);
+      console.log(`${bruker.id.slice(0, 6)} «${onske.tittel}»: ${r.funn.length} treff (${forsteSjekk ? 'første sjekk' : `${nye.length} nye`})`);
+      resultat.push({ id: onske.id, tittel: onske.tittel, termer: r.plan.termer, unnga: r.plan.unnga, forslag: r.forslag, funn: r.funn });
     }
-
-    // Samme vare i samme butikk til samme pris kommer ofte fra flere aviser: vis den én gang.
-    const unike = new Map();
-    for (const t of funn.values()) {
-      const k = `${t.tittel.toLowerCase().replace(/\s+/g, ' ').trim()}|${t.butikk.toLowerCase()}|${t.pris}`;
-      if (!unike.has(k)) unike.set(k, t);
-    }
-    const liste = [...unike.values()].sort((a, b) => (a.pris ?? 1e9) - (b.pris ?? 1e9));
-    const nye = liste.filter((t) => !sett[`${onske.nr}|${t.id}|${t.pris}`]);
-    for (const t of liste) sett[`${onske.nr}|${t.id}|${t.pris}`] ??= idag;
-    await varsle(onske, nye, abonnement);
-    console.log(`#${onske.nr} ${onske.tittel}: ${liste.length} treff (${nye.length} nye) – søkte på ${termer.join(', ')}`);
-
-    const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
-    const forslag = rangerForslag({ plan, ordbok, avviste, laerte: laerte.filter((g) => brett(g[0]) !== brett(onske.tittel)) });
-    resultat.push({ ...onske, termer: plan.termer, unnga: plan.unnga, forslag, funn: liste });
-    if (testsok) {
-      console.log(`Unngår: ${plan.unnga.join(', ') || '–'}`);
-      for (const t of liste) console.log(`  ${t.pris ?? '?'} kr  ${t.tittel}  (${t.butikk}, ${t.kilde}, traff «${t.traff}» – ${t.grunn})`);
-      console.log('Kilder:', JSON.stringify(kilder));
-      await skrivJson('testsok.json', { sok: testsok, tid: nå.toISOString(), kilder, termer: plan.termer, unnga: plan.unnga, ordbok, ordbokStatus, forslag, funn: liste });
-      return;
-    }
+    await worker(`funn/${bruker.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ versjon: VERSJON, oppdatert: nå.toISOString(), kilder, laerte, onsker: resultat }),
+    }).catch((e) => console.warn('Lagring av funn feilet:', e.message));
   }
 
   // Rydd: glem varsler eldre enn 60 dager og historikk for produkter vi ikke følger lenger.
   const grense = new Date(nå.getTime() - HISTORIKK_DAGER * 864e5).toISOString().slice(0, 10);
   for (const [k, d] of Object.entries(sett)) if (d < grense) delete sett[k];
   for (const [k, v] of Object.entries(historikk)) if (!v.length || v[v.length - 1][0] < grense) delete historikk[k];
-
-  await skrivJson('funn.json', { versjon: VERSJON, oppdatert: nå.toISOString(), kilder, laerte, onsker: resultat });
   await skrivJson('sett.json', sett);
-  await skrivJson('push.json', abonnement);
   await skrivJson('historikk.json', historikk);
 }
 

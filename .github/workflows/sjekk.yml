@@ -2,12 +2,8 @@ name: Sjekk tilbud
 
 on:
   schedule:
-    # Hver morgen ca. kl. 06:47 norsk vintertid (07:47 sommertid). GitHub bruker UTC.
-    - cron: '47 5 * * *'
-    # Og ettermiddag, når mange nye kundeaviser publiseres.
-    - cron: '23 14 * * *'
-  issues:
-    types: [opened, edited, reopened, closed, labeled, unlabeled]
+    # Hver tredje time (GitHub bruker UTC). Nye ønsker sjekkes med en gang i appen.
+    - cron: '17 */3 * * *'
   workflow_dispatch:
     inputs:
       testsok:
@@ -17,7 +13,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
 
 concurrency:
   group: sjekk-tilbud
@@ -25,8 +20,6 @@ concurrency:
 
 jobs:
   sjekk:
-    # Ved issue-hendelser: bare når det gjelder et ønske.
-    if: github.event_name != 'issues' || (contains(join(github.event.issue.labels.*.name, ','), 'ønske') || contains(join(github.event.issue.labels.*.name, ','), 'push-abonnement')) || github.event.action == 'unlabeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,14 +36,14 @@ jobs:
 
       - name: Hent tilbud og varsle
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           KASSALAPP_API_KEY: ${{ secrets.KASSALAPP_API_SECRET || secrets.KASSALAPP_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           TESTSOK: ${{ github.event.inputs.testsok }}
         run: node scripts/sjekk.mjs
 
-      - name: Lagre funn
+      - name: Lagre historikk
         run: |
           git config user.name "Tilbudsvakt"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -58,7 +51,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Ingen endringer."
           else
-            git commit -m "Oppdater tilbud $(date -u +%Y-%m-%dT%H:%MZ)"
+            git commit -m "Oppdater historikk $(date -u +%Y-%m-%dT%H:%MZ)"
             git pull --rebase --autostash || true
             git push
           fi
