@@ -10,6 +10,10 @@ on:
         description: 'Prøv et søk uten å lagre eller varsle (f.eks. håndkle)'
         required: false
         default: ''
+      selvtest:
+        description: 'Test den publiserte appen (skriv et ord, f.eks. kaffe)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -34,7 +38,15 @@ jobs:
       - name: Installer push-bibliotek
         run: npm install --no-save --no-audit --no-fund web-push@3
 
+      - name: Selvtest av appen
+        if: github.event.inputs.selvtest != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ORD: ${{ github.event.inputs.selvtest }}
+        run: node scripts/selvtest.mjs
+
       - name: Hent tilbud og varsle
+        if: github.event.inputs.selvtest == ''
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           KASSALAPP_API_KEY: ${{ secrets.KASSALAPP_API_SECRET || secrets.KASSALAPP_API_KEY }}
