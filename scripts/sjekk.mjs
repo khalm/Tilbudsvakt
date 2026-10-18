@@ -244,6 +244,7 @@ async function main() {
       console.log(`Unngår: ${plan.unnga.join(', ') || '–'}`);
       for (const t of liste) console.log(`  ${t.pris ?? '?'} kr  ${t.tittel}  (${t.butikk}, ${t.kilde}, traff «${t.traff}» – ${t.grunn})`);
       console.log('Kilder:', JSON.stringify(kilder));
+      await skrivJson('testsok.json', { sok: testsok, tid: nå.toISOString(), kilder, termer: plan.termer, unnga: plan.unnga, funn: liste });
       return;
     }
   }

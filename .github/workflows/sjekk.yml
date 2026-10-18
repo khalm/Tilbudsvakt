@@ -47,7 +47,6 @@ jobs:
         run: node scripts/sjekk.mjs
 
       - name: Lagre funn
-        if: github.event.inputs.testsok == ''
         run: |
           git config user.name "Tilbudsvakt"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
