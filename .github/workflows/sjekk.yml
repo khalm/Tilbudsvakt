@@ -26,7 +26,7 @@ concurrency:
 jobs:
   sjekk:
     # Ved issue-hendelser: bare når det gjelder et ønske.
-    if: github.event_name != 'issues' || contains(github.event.issue.labels.*.name, 'ønske') || github.event.action == 'unlabeled'
+    if: github.event_name != 'issues' || contains(join(github.event.issue.labels.*.name, ','), 'ønske') || github.event.action == 'unlabeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

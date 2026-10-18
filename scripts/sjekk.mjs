@@ -10,7 +10,8 @@
 //    og eventuelt ntfy hvis NTFY_TOPIC er satt.
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { utvid, passer, lesOnske, butikkOk } from '../lib/matcher.js';
+import { utvid, passer, lesOnske, butikkOk, liste as kommaliste, brett } from '../lib/matcher.js';
+import { rangerForslag, hentOrdbok } from '../lib/forslag.js';
 
 const VERSJON = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 const REPO = process.env.GITHUB_REPOSITORY ?? 'khalm/tilbudsvakt';
@@ -19,6 +20,7 @@ const KASSAL_KEY = process.env.KASSALAPP_API_KEY ?? '';
 const NTFY_TOPIC = process.env.NTFY_TOPIC ?? '';
 const TORR = () => process.env.DRY_RUN === '1'; // ingen kommentarer/varsler
 const ETIKETT = 'ønske';
+const ENDRING = 'ønske-endring'; // små hjelpe-issues fra appen: «legg til ord på ønske #N»
 const MAKS_TERMER = 10;          // søk per ønske og kilde
 const RABATT_GRENSE = 0.9;       // Kassalapp: minst 10 % under nylig pris
 const HISTORIKK_DAGER = 60;
@@ -64,11 +66,56 @@ const gh = (sti, opts = {}) => hent(`https://api.github.com/repos/${REPO}${sti}`
 
 async function sikreEtikett() {
   if (!GH_TOKEN) return;
-  try {
-    await gh(`/labels/${encodeURIComponent(ETIKETT)}`);
-  } catch {
-    await gh('/labels', { method: 'POST', body: JSON.stringify({ name: ETIKETT, color: '2f9e6e', description: 'Noe jeg trenger – Tilbudsvakt følger med på tilbud' }) })
-      .catch((e) => console.warn('Kunne ikke lage etikett:', e.message));
+  for (const [name, color, description] of [
+    [ETIKETT, '2f9e6e', 'Noe jeg trenger – Tilbudsvakt følger med på tilbud'],
+    [ENDRING, 'c5def5', 'Endring på et ønske fra Tilbudsvakt-appen (lukkes automatisk)'],
+  ]) {
+    try { await gh(`/labels/${encodeURIComponent(name)}`); }
+    catch {
+      await gh('/labels', { method: 'POST', body: JSON.stringify({ name, color, description }) })
+        .catch((e) => console.warn('Kunne ikke lage etikett:', e.message));
+    }
+  }
+}
+
+/** Legger verdier til en «Felt: a, b»-linje i issue-teksten (lager linjen om den mangler). */
+function leggTilFelt(body, navn, alias, verdier) {
+  if (!verdier.length) return body;
+  const linjer = String(body ?? '').split('\n');
+  const re = new RegExp(`^\\s*(?:${alias})\\s*:(.*)$`, 'i');
+  const i = linjer.findIndex((l) => re.test(l));
+  const gamle = i >= 0 ? kommaliste(linjer[i].match(re)[1]) : [];
+  const alle = [...gamle];
+  for (const v of verdier) if (!alle.some((g) => brett(g) === brett(v))) alle.push(v);
+  const ny = `${navn}: ${alle.join(', ')}`;
+  if (i >= 0) linjer[i] = ny; else linjer.unshift(ny);
+  return linjer.join('\n');
+}
+
+/** Utfører endringer appen har bestilt (legg til søkeord / unngå-ord), og lukker hjelpe-issuet. */
+async function utforEndringer() {
+  if (!GH_TOKEN) return;
+  const liste = await gh(`/issues?state=open&labels=${encodeURIComponent(ENDRING)}&per_page=50`).catch(() => []);
+  for (const e of liste) {
+    const body = String(e.body ?? '');
+    const felt = (n) => { const m = body.match(new RegExp(`^\\s*(?:${n})\\s*:\\s*(.*)$`, 'im')); return m ? m[1].trim() : ''; };
+    const nr = parseInt(felt('ønske|onske|wish').replace(/[^0-9]/g, ''), 10);
+    const leggTil = kommaliste(felt('legg til|andre ord|add'));
+    const unnga = kommaliste(felt('unngå|unnga|avoid'));
+    let svar;
+    try {
+      if (!nr) throw new Error('fant ikke hvilket ønske det gjaldt');
+      const mal = await gh(`/issues/${nr}`);
+      let ny = leggTilFelt(mal.body, 'Andre ord', 'andre ord|ekstra ord|synonymer|also|other words', leggTil);
+      ny = leggTilFelt(ny, 'Unngå', 'unngå|unnga|ikke|avoid|exclude', unnga);
+      await gh(`/issues/${nr}`, { method: 'PATCH', body: JSON.stringify({ body: ny }) });
+      svar = `✔ Oppdaterte #${nr}.${leggTil.length ? ` Søker nå også etter: ${leggTil.join(', ')}.` : ''}${unnga.length ? ` Unngår: ${unnga.join(', ')}.` : ''}`;
+    } catch (err) {
+      svar = `Klarte ikke å oppdatere ønsket: ${err.message}`;
+    }
+    await gh(`/issues/${e.number}/comments`, { method: 'POST', body: JSON.stringify({ body: svar }) }).catch(() => {});
+    await gh(`/issues/${e.number}`, { method: 'PATCH', body: JSON.stringify({ state: 'closed', state_reason: 'completed' }) }).catch(() => {});
+    console.log(svar);
   }
 }
 
@@ -195,6 +242,7 @@ async function varsle(onske, nye) {
 async function main() {
   const testsok = (process.env.TESTSOK ?? '').trim();
   await sikreEtikett();
+  if (!testsok) await utforEndringer();
   // Testsøk: lat som det finnes ett ønske, vis resultatet i loggen, lagre/varsle ingenting.
   const onsker = testsok ? [{ nr: 0, tittel: testsok, makspris: null, ekstra: [], unnga: [], butikker: [] }] : await hentOnsker();
   if (testsok) process.env.DRY_RUN = '1';
@@ -210,6 +258,7 @@ async function main() {
     const plan = utvid(onske);
     const termer = plan.termer.slice(0, MAKS_TERMER);
     const funn = new Map();
+    const avviste = []; // relevante søketreff som ikke passet – grunnlag for forslag
 
     const vurder = (t) => {
       if (funn.has(t.id)) return;
@@ -220,7 +269,7 @@ async function main() {
       // Bare tittelen teller. Beskrivelser i kundeaviser nevner ofte andre varer
       // ("Potetmos – rør inn melk"), og det ga feiltreff.
       const m = passer(t.tittel, plan);
-      if (!m) return;
+      if (!m) { if (avviste.length < 400) avviste.push({ tittel: t.tittel, butikk: t.butikk }); return; }
       if (t.kilde === 'kassalapp' && !vurderKassal(t, historikk)) return;
       delete t._historikk;
       funn.set(t.id, { ...t, traff: m.term, grunn: m.grunn });
@@ -250,12 +299,14 @@ async function main() {
     await varsle(onske, nye);
     console.log(`#${onske.nr} ${onske.tittel}: ${liste.length} treff (${nye.length} nye) – søkte på ${termer.join(', ')}`);
 
-    resultat.push({ ...onske, termer: plan.termer, unnga: plan.unnga, funn: liste });
+    const ordbok = await hentOrdbok(onske.tittel);
+    const forslag = rangerForslag({ plan, ordbok, avviste });
+    resultat.push({ ...onske, termer: plan.termer, unnga: plan.unnga, forslag, funn: liste });
     if (testsok) {
       console.log(`Unngår: ${plan.unnga.join(', ') || '–'}`);
       for (const t of liste) console.log(`  ${t.pris ?? '?'} kr  ${t.tittel}  (${t.butikk}, ${t.kilde}, traff «${t.traff}» – ${t.grunn})`);
       console.log('Kilder:', JSON.stringify(kilder));
-      await skrivJson('testsok.json', { sok: testsok, tid: nå.toISOString(), kilder, termer: plan.termer, unnga: plan.unnga, funn: liste });
+      await skrivJson('testsok.json', { sok: testsok, tid: nå.toISOString(), kilder, termer: plan.termer, unnga: plan.unnga, ordbok, forslag, funn: liste });
       return;
     }
   }
