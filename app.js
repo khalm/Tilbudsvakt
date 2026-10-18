@@ -3,7 +3,7 @@ import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
 import { oppsummer, sparklinje, fraKassalBulk, slaSammen } from './lib/historikk.js';
 
-const VERSJON = '2.2.0';
+const VERSJON = '2.3.0';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
@@ -44,6 +44,10 @@ const T = {
     kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 tilbud' : `${n} tilbud`} på «${o}» nå – billigst ${p}.`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
+    installer: '📲 Installer appen', installert: 'Tilbudsvakt er installert ✔ Du finner den på startskjermen.',
+    installerHjelp: 'Trykk ⋮ øverst til høyre i Chrome og velg «Installer app» eller «Legg til på startskjermen».',
+    installerHjelpIos: 'Trykk Del-knappen nederst i Safari og velg «Legg til på Hjem-skjerm».',
+    prisjakt: 'Se prishistorikk på Prisjakt ↗',
     prishistorikk: '📈 Prishistorikk', ingenHistorikk: 'Ingen prishistorikk ennå. Tilbudsvakt samler den fra nå av, så den blir bedre for hver uke.',
     lavest: 'Laveste', hoyest: 'Høyeste', vanligPris: 'Vanlig pris', periode: (a, b) => `${a} – ${b}`,
     naaLavest: '✔ Laveste pris Tilbudsvakt har sett', settTilbud: (n, d) => `Sett på tilbud ${n} ${n === 1 ? 'gang' : 'ganger'} siden ${d}`,
@@ -100,6 +104,10 @@ const T = {
     kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 offer' : `${n} offers`} on “${o}” now – cheapest ${p}.`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
+    installer: '📲 Install app', installert: 'Tilbudsvakt is installed ✔ You’ll find it on your home screen.',
+    installerHjelp: 'Tap ⋮ at the top right in Chrome and choose “Install app” or “Add to Home screen”.',
+    installerHjelpIos: 'Tap the Share button at the bottom of Safari and choose “Add to Home Screen”.',
+    prisjakt: 'See price history on Prisjakt ↗',
     prishistorikk: '📈 Price history', ingenHistorikk: 'No price history yet. Tilbudsvakt collects it from now on, so it gets better every week.',
     lavest: 'Lowest', hoyest: 'Highest', vanligPris: 'Usual price', periode: (a, b) => `${a} – ${b}`,
     naaLavest: '✔ Lowest price Tilbudsvakt has seen', settTilbud: (n, d) => `Seen on offer ${n} ${n === 1 ? 'time' : 'times'} since ${d}`,
@@ -288,6 +296,7 @@ function tilbudHtml(x) {
           <summary>${esc(t('prishistorikk'))}</summary>
           <div class="historikk-innhold">${historikkHtml(x)}</div>
           ${x.ean ? `<div class="andre-butikker" data-ean="${esc(x.ean)}"></div>` : ''}
+          ${x.kilde !== 'kassalapp' ? `<a class="lenke prisjakt" href="https://www.prisjakt.no/search?search=${encodeURIComponent(prisjaktSok(x.tittel))}" target="_blank" rel="noopener">${esc(t('prisjakt'))}</a>` : ''}
         </details>
         <button type="button" class="skjul-butikk" data-skjul="${esc(x.butikk)}">🚫 ${esc(t('skjulButikk'))}</button>
       </div>
@@ -297,6 +306,16 @@ function tilbudHtml(x) {
         ${rabatt > 0 ? `<div class="rabatt">−${rabatt}%</div>` : ''}
       </div>
     </li>`;
+}
+
+/** Søkeord til Prisjakt: tittelen uten mål, pakningsstørrelser og fyll. */
+function prisjaktSok(tittel) {
+  return String(tittel)
+    .replace(/\b\d+([.,]\d+)?\s*(x\s*\d+\s*)?(cm|mm|m|l|liter|dl|ml|g|kg|stk|pk|pakk|-pk|w|v)\b/gi, ' ')
+    .replace(/\s+-\s+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80) || tittel;
 }
 
 function historikkHtml(x, spor = x.spor ?? []) {
@@ -455,6 +474,7 @@ function tegn(tving = false) {
   oversett();
   tegnStatus();
   tegnVarselKnapp();
+  tegnInstallerKnapp();
   // Tegn kortene bare når noe er endret, så valgte forslag og åpne lister ikke nullstilles.
   const nokkel = JSON.stringify([sprak, onsker, blokkert, funn?.oppdatert, Object.keys(umiddelbar).length, [...sjekkerNa], redigerer]);
   if (tving || nokkel !== sistTegnet) { sistTegnet = nokkel; tegnOnsker(); }
@@ -505,6 +525,40 @@ async function leggTilOnske(data) {
     visBeskjed(treff.length ? t('funnetNaa')(o.tittel, treff.length, kr(treff[0].pris)) : t('ingenNaa')(o.tittel));
   }
 }
+
+// ---------- Installer appen ----------
+let installerHendelse = null;
+const erInstallert = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const erIos = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+function tegnInstallerKnapp() {
+  const k = $('#installer');
+  k.textContent = t('installer');
+  k.hidden = erInstallert() || hentLagret('installert') === true;
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installerHendelse = e;
+  lagre('installert', false);
+  tegnInstallerKnapp();
+});
+window.addEventListener('appinstalled', () => {
+  installerHendelse = null;
+  lagre('installert', true);
+  tegnInstallerKnapp();
+  visBeskjed(t('installert'));
+});
+$('#installer').addEventListener('click', async () => {
+  if (installerHendelse) {
+    installerHendelse.prompt();
+    const { outcome } = await installerHendelse.userChoice.catch(() => ({}));
+    if (outcome === 'accepted') { lagre('installert', true); installerHendelse = null; }
+    tegnInstallerKnapp();
+  } else {
+    // Nettleseren tilbyr ikke installasjon direkte (f.eks. Safari): vis hvordan.
+    visBeskjed(erIos ? t('installerHjelpIos') : t('installerHjelp'), 14000);
+  }
+});
 
 // ---------- Push-varsler ----------
 function base64tilBytes(b64) {

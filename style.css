@@ -227,3 +227,6 @@ button.brikke { font: inherit; font-size: .8rem; border: 1.5px solid transparent
 .andre { list-style: none; padding: 0; margin: 4px 0 0; font-size: .85rem; max-width: 320px; }
 .andre li { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid var(--linje); }
 .andre li.denne { font-weight: 700; }
+
+.varsler-rad { display: flex; flex-wrap: wrap; gap: 8px; }
+.prisjakt { display: inline-block; margin-top: 4px; font-size: .82rem; }

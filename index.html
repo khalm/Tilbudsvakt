@@ -17,12 +17,15 @@
       <img src="icon.svg" alt="" class="logo" width="40" height="40">
       <div class="merke">
         <h1>Tilbudsvakt</h1>
-        <span class="versjon" id="versjon">v2.2.0</span>
+        <span class="versjon" id="versjon">v2.3.0</span>
       </div>
       <button class="sprak" id="sprak" type="button" aria-label="Bytt språk">EN</button>
     </div>
     <p class="status" id="status" aria-live="polite">…</p>
-    <div class="varsler-rad"><button class="knapp varsel-knapp" id="varsler" type="button" hidden>🔔 Slå på varsler</button></div>
+    <div class="varsler-rad">
+      <button class="knapp varsel-knapp" id="installer" type="button" hidden>📲 Installer appen</button>
+      <button class="knapp varsel-knapp" id="varsler" type="button" hidden>🔔 Slå på varsler</button>
+    </div>
   </header>
 
   <div id="beskjed" class="beskjed" role="status" hidden><span id="beskjed-tekst"></span><button type="button" id="beskjed-knapp" class="beskjed-knapp" hidden></button></div>
@@ -98,7 +101,7 @@
   </main>
 
   <footer class="bunn">
-    <span id="bunn-versjon">Tilbudsvakt v2.2.0</span> ·
+    <span id="bunn-versjon">Tilbudsvakt v2.3.0</span> ·
     <a id="repo-lenke" href="https://github.com/khalm/tilbudsvakt" target="_blank" rel="noopener">Kildekode</a>
   </footer>
 
