@@ -78,3 +78,13 @@ test('stamme og brett', () => {
   assert.equal(stamme('teskjeer'), stamme('teskje'));
   assert.equal(stamme('handkleder'), stamme('handklede'));
 });
+
+test('fjernede ord søkes ikke etter, men selve ønsket blir', () => {
+  const p = utvid({ tittel: 'håndkle', fjern: ['håndduk', 'badelaken', 'håndkle'] });
+  assert.ok(!p.termer.includes('håndduk'));
+  assert.ok(!p.termer.includes('badelaken'));
+  assert.ok(p.termer.includes('håndkle'));
+  assert.ok(!treff('Håndduk 50x70', p));
+  assert.ok(treff('Håndklede 50x70', p));
+  assert.deepEqual(lesOnske({ number: 1, title: 'x', body: 'Ikke søk etter: håndduk, badelaken' }).fjern, ['håndduk', 'badelaken']);
+});

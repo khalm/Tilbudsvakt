@@ -105,6 +105,7 @@ async function utforEndringer() {
     const felt = (n) => { const m = body.match(new RegExp(`^\\s*(?:${n})\\s*:\\s*(.*)$`, 'im')); return m ? m[1].trim() : ''; };
     const nr = parseInt(felt('ønske|onske|wish').replace(/[^0-9]/g, ''), 10);
     const leggTil = kommaliste(felt('legg til|andre ord|add'));
+    const fjern = kommaliste(felt('ikke søk etter|fjern|remove'));
     const unnga = kommaliste(felt('unngå|unnga|avoid'));
     let svar;
     try {
@@ -112,8 +113,9 @@ async function utforEndringer() {
       const mal = await gh(`/issues/${nr}`);
       let ny = leggTilFelt(mal.body, 'Andre ord', 'andre ord|ekstra ord|synonymer|also|other words', leggTil);
       ny = leggTilFelt(ny, 'Unngå', 'unngå|unnga|ikke|avoid|exclude', unnga);
+      ny = leggTilFelt(ny, 'Ikke søk etter', 'ikke søk etter|ikke sok etter|fjern|fjernet|remove', fjern);
       await gh(`/issues/${nr}`, { method: 'PATCH', body: JSON.stringify({ body: ny }) });
-      svar = `✔ Oppdaterte #${nr}.${leggTil.length ? ` Søker nå også etter: ${leggTil.join(', ')}.` : ''}${unnga.length ? ` Unngår: ${unnga.join(', ')}.` : ''}`;
+      svar = `✔ Oppdaterte #${nr}.${leggTil.length ? ` Søker nå også etter: ${leggTil.join(', ')}.` : ''}${unnga.length ? ` Unngår: ${unnga.join(', ')}.` : ''}${fjern.length ? ` Søker ikke lenger etter: ${fjern.join(', ')}.` : ''}`;
     } catch (err) {
       svar = `Klarte ikke å oppdatere ønsket: ${err.message}`;
     }

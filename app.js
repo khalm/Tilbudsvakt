@@ -1,7 +1,7 @@
 import { utvid, passer, lesOnske, liste, brett } from './lib/matcher.js';
 import { beslektet } from './lib/forslag.js';
 
-const VERSJON = '1.2.0';
+const VERSJON = '1.3.0';
 
 // Repoet appen hører til: utledes fra GitHub Pages-adressen, ellers standard.
 const [EIER, REPO] = (() => {
@@ -33,6 +33,7 @@ const T = {
     tom: 'Ingen ønsker ennå. Skriv noe du trenger over, så følger Tilbudsvakt med for deg.',
     ingenTilbud: 'Ingen tilbud akkurat nå. Du får varsel når noe dukker opp.',
     venter: 'Sjekker tilbud nå … du får beskjed her og i GitHub-appen så snart det er klart (vanligvis 1–2 minutter).',
+    fjernOrd: (x) => `Ikke søk etter ${x}`, fjernet: 'Søker ikke etter', 
     varslerPaa: '🔔 Slå på varsler', varslerErPaa: '🔔 Varsler er på', varslerVenter: '🔔 Varsler slås på …',
     varslerBlokkert: 'Varsler er blokkert. Tillat varsler for nettstedet i Chrome-innstillingene.',
     varslerIkkeStottet: 'Denne nettleseren støtter ikke push-varsler. Installer appen fra Chrome-menyen («Legg til på startskjermen»).',
@@ -76,6 +77,7 @@ const T = {
     tom: 'No wishes yet. Type something you need above and Tilbudsvakt will keep watch.',
     ingenTilbud: 'No offers right now. You’ll be notified when something shows up.',
     venter: 'Checking offers now … you’ll be told here and in the GitHub app as soon as it’s done (usually 1–2 minutes).',
+    fjernOrd: (x) => `Don’t search for ${x}`, fjernet: 'Not searching for', 
     varslerPaa: '🔔 Turn on notifications', varslerErPaa: '🔔 Notifications on', varslerVenter: '🔔 Turning on …',
     varslerBlokkert: 'Notifications are blocked. Allow them for this site in Chrome settings.',
     varslerIkkeStottet: 'This browser does not support push notifications. Install the app from the Chrome menu (“Add to Home screen”).',
@@ -221,11 +223,17 @@ function tegnStatus() {
   $('#status').textContent = deler.join(' ');
 }
 
-function brikker(termer, vis = 6) {
-  const synlige = termer.slice(0, vis).map((x) => `<span class="brikke">${esc(x)}</span>`).join('');
+function brikke(x, fjernbar) {
+  return fjernbar
+    ? `<span class="brikke fjernbar">${esc(x)}<button type="button" class="kryss" data-fjern="${esc(x)}" aria-label="${esc(t('fjernOrd')(x))}">×</button></span>`
+    : `<span class="brikke">${esc(x)}</span>`;
+}
+
+function brikker(termer, vis = 6, fjernbar = false) {
+  const synlige = termer.slice(0, vis).map((x) => brikke(x, fjernbar)).join('');
   const rest = termer.length - vis;
   if (rest <= 0) return synlige;
-  const skjult = termer.slice(vis).map((x) => `<span class="brikke">${esc(x)}</span>`).join('');
+  const skjult = termer.slice(vis).map((x) => brikke(x, fjernbar)).join('');
   return `${synlige}<details class="mer"><summary>${esc(t('flere')(rest))}</summary>${skjult}</details>`;
 }
 
@@ -277,7 +285,8 @@ function tegnOnsker() {
           </div>
           <span class="teller${liste.length ? ' aktiv' : ''}">${esc(t('tilbud')(liste.length))}</span>
         </header>
-        <div class="brikker">${brikker(plan.termer.filter((x) => x !== o.tittel.toLowerCase()))}</div>
+        <div class="brikker" data-nr="${o.nr}">${brikker(plan.termer.filter((x) => brett(x) !== brett(o.tittel)), 6, true)}</div>
+        ${o.fjern?.length ? `<p class="liten svak">${esc(t('fjernet'))}: ${o.fjern.map((f) => `<button type="button" class="angre" data-angre="${esc(f)}" data-nr="${o.nr}">${esc(f)} ↺</button>`).join(' ')}</p>` : ''}
         ${liste.length
           ? `<ul class="tilbudsliste">${liste.slice(0, 6).map(tilbudHtml).join('')}</ul>${liste.length > 6
               ? `<details class="flere-tilbud"><summary>${esc(t('visAlle')(liste.length))}</summary><ul class="tilbudsliste">${liste.slice(6).map(tilbudHtml).join('')}</ul></details>` : ''}`
@@ -306,11 +315,13 @@ function forslagHtml(o, r) {
     </details>`;
 }
 
-function bestillEndring(nr, tittel, leggTil, unnga) {
-  const body = [`Ønske: #${nr}`, leggTil.length ? `Legg til: ${leggTil.join(', ')}` : '', unnga.length ? `Unngå: ${unnga.join(', ')}` : '']
+function bestillEndring(nr, tittel, leggTil, unnga, fjern = []) {
+  const body = [`Ønske: #${nr}`, leggTil.length ? `Legg til: ${leggTil.join(', ')}` : '', unnga.length ? `Unngå: ${unnga.join(', ')}` : '',
+    fjern.length ? `Ikke søk etter: ${fjern.join(', ')}` : '']
     .filter(Boolean).join('\n');
-  const ord = [...leggTil, ...unnga].join(', ');
-  const p = new URLSearchParams({ title: `${leggTil.length ? 'Søk også etter' : 'Unngå'} «${ord}» på «${tittel}»`, body, labels: ENDRING });
+  const ord = [...leggTil, ...unnga, ...fjern].join(', ');
+  const hva = leggTil.length ? 'Søk også etter' : unnga.length ? 'Unngå' : 'Ikke søk etter';
+  const p = new URLSearchParams({ title: `${hva} «${ord}» på «${tittel}»`, body, labels: ENDRING });
   window.open(`${REPO_URL}/issues/new?${p}`, '_blank', 'noopener');
   ventende.push({ tittel, tid: Date.now() });
   startPolling();
@@ -321,11 +332,14 @@ function tegnForhand() {
   const ekstra = liste($('#ny-ekstra').value);
   const boks = $('#forhand');
   if (!tittel) { boks.hidden = true; return; }
-  const plan = utvid({ tittel, ekstra, unnga: liste($('#ny-unnga').value) });
+  const plan = utvid({ tittel, ekstra, unnga: liste($('#ny-unnga').value), fjern: [...fjernede] });
   const andre = plan.termer.filter((x) => x !== tittel.toLowerCase());
   const kanskje = beslektet(plan, undefined, funn?.laerte ?? []).slice(0, 8).map((x) => x.ord);
-  boks.hidden = !andre.length && !kanskje.length;
-  $('#forhand-brikker').innerHTML = brikker(andre, 10) + (kanskje.length
+  boks.hidden = !andre.length && !kanskje.length && !fjernede.size;
+  const fjernetHer = [...fjernede].filter((f) => utvid({ tittel, ekstra }).termer.some((x) => brett(x) === brett(f)));
+  $('#forhand-brikker').innerHTML = brikker(andre, 10, true)
+    + (fjernetHer.length ? `<p class="liten svak hel">${esc(t('fjernet'))}: ${fjernetHer.map((f) => `<button type="button" class="angre" data-angre="${esc(f)}">${esc(f)} ↺</button>`).join(' ')}</p>` : '')
+    + (kanskje.length
     ? `<p class="liten svak hel">${esc(t('forslagSkjema'))}</p>${kanskje.map((k) => `<button type="button" class="brikke valg pluss" data-legg="${esc(k)}">+ ${esc(k)}</button>`).join('')}`
     : '');
 }
@@ -391,6 +405,7 @@ async function slaPaVarsler() {
 }
 
 let sistTegnet = '';
+const fjernede = new Set(); // ord fjernet fra et nytt ønske før det legges til
 function tegn() {
   oversett();
   tegnStatus();
@@ -412,6 +427,7 @@ $('#ny-form').addEventListener('submit', (e) => {
     pris ? `Makspris: ${pris}` : '',
     $('#ny-ekstra').value.trim() ? `Andre ord: ${$('#ny-ekstra').value.trim()}` : '',
     $('#ny-unnga').value.trim() ? `Unngå: ${$('#ny-unnga').value.trim()}` : '',
+    fjernede.size ? `Ikke søk etter: ${[...fjernede].join(', ')}` : '',
     $('#ny-butikker').value.trim() ? `Butikker: ${$('#ny-butikker').value.trim()}` : '',
   ].filter(Boolean);
   const body = [
@@ -426,10 +442,15 @@ $('#ny-form').addEventListener('submit', (e) => {
   startPolling();
   visBeskjed(t('venter'));
   e.target.reset();
+  fjernede.clear();
   tegnForhand();
 });
 
 $('#forhand-brikker').addEventListener('click', (e) => {
+  const kryss = e.target.closest('[data-fjern]');
+  if (kryss) { fjernede.add(kryss.dataset.fjern); tegnForhand(); return; }
+  const angre = e.target.closest('[data-angre]');
+  if (angre) { fjernede.delete(angre.dataset.angre); tegnForhand(); return; }
   const b = e.target.closest('[data-legg]');
   if (!b) return;
   const felt = $('#ny-ekstra');
@@ -441,6 +462,20 @@ $('#forhand-brikker').addEventListener('click', (e) => {
 });
 
 $('#onsker').addEventListener('click', (e) => {
+  const kryss = e.target.closest('[data-fjern]');
+  if (kryss) {
+    const nr = Number(kryss.closest('[data-nr]').dataset.nr);
+    const o = onsker.find((x) => x.nr === nr);
+    bestillEndring(nr, o?.tittel ?? '', [], [], [kryss.dataset.fjern]);
+    return;
+  }
+  const angre = e.target.closest('[data-angre]');
+  if (angre) {
+    const nr = Number(angre.dataset.nr);
+    const o = onsker.find((x) => x.nr === nr);
+    bestillEndring(nr, o?.tittel ?? '', [angre.dataset.angre], []);
+    return;
+  }
   const boks = e.target.closest('.forslag');
   if (!boks) return;
   const valg = e.target.closest('.valg');
