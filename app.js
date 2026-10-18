@@ -1,7 +1,7 @@
 import { utvid, passer, lesOnske, liste, brett } from './lib/matcher.js';
 import { beslektet } from './lib/forslag.js';
 
-const VERSJON = '1.1.0';
+const VERSJON = '1.2.0';
 
 // Repoet appen hører til: utledes fra GitHub Pages-adressen, ellers standard.
 const [EIER, REPO] = (() => {
@@ -15,6 +15,8 @@ const [EIER, REPO] = (() => {
 const REPO_URL = `https://github.com/${EIER}/${REPO}`;
 const ETIKETT = 'ønske';
 const ENDRING = 'ønske-endring';
+const PUSH = 'push-abonnement';
+const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 
 // ---------- Tekster ----------
 const T = {
@@ -31,6 +33,10 @@ const T = {
     tom: 'Ingen ønsker ennå. Skriv noe du trenger over, så følger Tilbudsvakt med for deg.',
     ingenTilbud: 'Ingen tilbud akkurat nå. Du får varsel når noe dukker opp.',
     venter: 'Sjekker tilbud nå … du får beskjed her og i GitHub-appen så snart det er klart (vanligvis 1–2 minutter).',
+    varslerPaa: '🔔 Slå på varsler', varslerErPaa: '🔔 Varsler er på', varslerVenter: '🔔 Varsler slås på …',
+    varslerBlokkert: 'Varsler er blokkert. Tillat varsler for nettstedet i Chrome-innstillingene.',
+    varslerIkkeStottet: 'Denne nettleseren støtter ikke push-varsler. Installer appen fra Chrome-menyen («Legg til på startskjermen»).',
+    varslerSendt: 'Trykk «Create» på GitHub-siden som åpnes. Om et minutt får du et testvarsel.',
     forslagTittel: 'Forslag til flere søkeord (mest sannsynlige først)', forslagHjelp: 'Trykk for å velge.',
     leggTilValgte: 'Søk også etter valgte', unngaValgte: 'Unngå valgte',
     forslagSkjema: 'Kanskje også:', kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
@@ -52,7 +58,7 @@ const T = {
       <ol>
         <li><b>Skriv det du trenger</b> – «håndkle», «teskjeer», «ved», «kaffe». Du trenger ikke tenke på alle ordene det kan hete: Tilbudsvakt søker også etter synonymer (håndklede, håndduk, håndklær), bøyninger (teskje/teskjeer) og sammensatte ord (badehåndkle, bjørkeved), men ikke ting som bare ligner (håndklestativ, vedovn).</li>
         <li><b>To ganger om dagen</b> sjekkes kundeaviser fra dagligvare, Europris, Jula, Clas Ohlson, byggvare og mer (eTilbudsavis), og dagligvarepriser fra Kassalapp.</li>
-        <li><b>Du får varsel</b> som en kommentar på ønsket i GitHub-appen. Slå på varsler i GitHub-appen på telefonen. Vil du heller ha varsel via <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a>, legg et hemmelig emnenavn i repo-secret <code>NTFY_TOPIC</code> og abonner på det samme navnet i ntfy-appen.</li>
+        <li><b>Du får varsel fra Tilbudsvakt</b> på telefonen når noe du trenger kommer på tilbud – også når appen er lukket. Trykk «Slå på varsler» øverst én gang. (Tilbudene skrives også som kommentar på ønsket på GitHub.)</li>
         <li><b>Kjøpt det?</b> Trykk «Kjøpt / fjern» og lukk ønsket, så stopper varslene.</li>
       </ol>
       <p class="liten"><b>Dagligvarer med prishistorikk:</b> lag en gratis nøkkel på <a href="https://kassal.app/api" target="_blank" rel="noopener">kassal.app/api</a> og legg den som repo-secret <code>KASSALAPP_API_SECRET</code> (GitHub → Settings → Secrets and variables → Actions). Da varsles du også når en dagligvare er minst 10 % billigere enn den har vært de siste 60 dagene.</p>`,
@@ -70,6 +76,10 @@ const T = {
     tom: 'No wishes yet. Type something you need above and Tilbudsvakt will keep watch.',
     ingenTilbud: 'No offers right now. You’ll be notified when something shows up.',
     venter: 'Checking offers now … you’ll be told here and in the GitHub app as soon as it’s done (usually 1–2 minutes).',
+    varslerPaa: '🔔 Turn on notifications', varslerErPaa: '🔔 Notifications on', varslerVenter: '🔔 Turning on …',
+    varslerBlokkert: 'Notifications are blocked. Allow them for this site in Chrome settings.',
+    varslerIkkeStottet: 'This browser does not support push notifications. Install the app from the Chrome menu (“Add to Home screen”).',
+    varslerSendt: 'Tap “Create” on the GitHub page that opens. You’ll get a test notification in a minute.',
     forslagTittel: 'Suggested extra search words (most likely first)', forslagHjelp: 'Tap to select.',
     leggTilValgte: 'Also search for selected', unngaValgte: 'Ignore selected',
     forslagSkjema: 'Maybe also:', kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
@@ -91,7 +101,7 @@ const T = {
       <ol>
         <li><b>Type what you need</b>, ideally in Norwegian. Tilbudsvakt also searches synonyms (håndklede, håndduk, håndklær), inflections and compound words (badehåndkle, bjørkeved), but not things that merely look similar (håndklestativ, vedovn).</li>
         <li><b>Twice a day</b> it checks flyers from grocery chains, Europris, Jula, Clas Ohlson, DIY stores and more (eTilbudsavis), plus grocery prices from Kassalapp.</li>
-        <li><b>You get notified</b> as a comment on the wish in the GitHub app. Turn on notifications in the GitHub mobile app. Prefer <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a>? Put a secret topic name in the repo secret <code>NTFY_TOPIC</code> and subscribe to it in the ntfy app.</li>
+        <li><b>Tilbudsvakt notifies you</b> on your phone when something you need goes on sale – even when the app is closed. Tap “Turn on notifications” at the top once. (Offers are also posted as a comment on the wish on GitHub.)</li>
         <li><b>Bought it?</b> Tap “Bought / remove” and close the wish to stop notifications.</li>
       </ol>
       <p class="liten"><b>Groceries with price history:</b> create a free key at <a href="https://kassal.app/api" target="_blank" rel="noopener">kassal.app/api</a> and add it as the repo secret <code>KASSALAPP_API_SECRET</code>. You’ll then also be notified when a grocery item is at least 10% cheaper than in the last 60 days.</p>`,
@@ -189,6 +199,7 @@ async function lastInn() {
   if (f.status === 'fulfilled') {
     funn = f.value;
     lagre('funn', funn);
+    if (hentLagret('pushVenter') && new Date(funn.oppdatert ?? 0).getTime() > hentLagret('pushVenter')) lagre('pushVenter', 0);
     sjekkVentende();
   } else {
     funn = hentLagret('funn');
@@ -339,10 +350,51 @@ function oversett() {
   $('#sprak').textContent = sprak === 'en' ? 'NO' : 'EN';
 }
 
+// ---------- Push-varsler ----------
+function base64tilBytes(b64) {
+  const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (b64.length % 4)) % 4));
+  return Uint8Array.from(s, (c) => c.charCodeAt(0));
+}
+const stottesPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+async function tegnVarselKnapp() {
+  const k = $('#varsler');
+  if (!stottesPush) { k.hidden = true; return; }
+  k.hidden = false;
+  let aktiv = false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    aktiv = Boolean(await reg.pushManager.getSubscription()) && Notification.permission === 'granted';
+  } catch {}
+  const venter = hentLagret('pushVenter') && Date.now() - hentLagret('pushVenter') < 10 * 60e3;
+  k.textContent = aktiv ? (venter ? t('varslerVenter') : t('varslerErPaa')) : t('varslerPaa');
+  k.classList.toggle('paa', aktiv && !venter);
+}
+
+async function slaPaVarsler() {
+  if (!stottesPush) { visBeskjed(t('varslerIkkeStottet')); return; }
+  const tillatelse = await Notification.requestPermission();
+  if (tillatelse !== 'granted') { visBeskjed(t('varslerBlokkert')); return; }
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64tilBytes(VAPID_OFFENTLIG) });
+  const enhet = /Android/i.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/i.test(navigator.userAgent) ? 'iPhone' : 'nettleser';
+  const p = new URLSearchParams({
+    title: `Slå på varsler (${enhet})`,
+    body: `Tilbudsvakt registrerer denne telefonen og lukker saken automatisk.\n\n${JSON.stringify(sub.toJSON())}`,
+    labels: PUSH,
+  });
+  window.open(`${REPO_URL}/issues/new?${p}`, '_blank', 'noopener');
+  lagre('pushVenter', Date.now());
+  visBeskjed(t('varslerSendt'));
+  tegnVarselKnapp();
+}
+
 let sistTegnet = '';
 function tegn() {
   oversett();
   tegnStatus();
+  tegnVarselKnapp();
   // Tegn kortene bare når noe faktisk er endret, så valgte forslag og åpne lister ikke nullstilles.
   const nokkel = JSON.stringify([sprak, onsker, funn?.oppdatert, funn?.onsker?.length]);
   if (nokkel !== sistTegnet) { sistTegnet = nokkel; tegnOnsker(); }
@@ -409,6 +461,10 @@ $('#onsker').addEventListener('click', (e) => {
 ['#ny-ord', '#ny-ekstra', '#ny-unnga'].forEach((s) => $(s).addEventListener('input', tegnForhand));
 $('#test-ord').addEventListener('input', tegnTest);
 $('#oppdater').addEventListener('click', lastInn);
+$('#varsler').addEventListener('click', () => {
+  if ($('#varsler').classList.contains('paa')) return;
+  slaPaVarsler().catch((e) => visBeskjed(`${t('varslerBlokkert')} (${e.message})`));
+});
 $('#sprak').addEventListener('click', () => {
   sprak = sprak === 'en' ? 'nb' : 'en';
   try { localStorage.setItem('sprak', sprak); } catch {}

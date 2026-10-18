@@ -12,7 +12,8 @@ Håndklær, teskjeer, ved, kaffe, kattemat – både dagligvarer og alt annet.
    GitHub Actions `scripts/sjekk.mjs`, som søker i:
    - **eTilbudsavis/Tjek** – kundeaviser fra dagligvare, Europris, Jula, Clas Ohlson, byggvare m.m. Ingen nøkkel.
    - **Kassalapp** – dagligvarer med prishistorikk. Valgfritt, krever gratis nøkkel (se under).
-3. **Varsel**: nye tilbud postes som kommentar på ønsket → push-varsel i GitHub-appen.
+3. **Varsel fra Tilbudsvakt** på telefonen (Web Push, virker også når appen er lukket).
+   Trykk «Slå på varsler» i appen én gang. Tilbudene skrives også som kommentar på ønsket.
    Valgfritt også via [ntfy](https://ntfy.sh).
 4. **Kjøpt?** Lukk ønsket, så stopper varslene.
 
@@ -60,7 +61,8 @@ Alle feltene er valgfrie og kan endres når som helst.
   repo-secret `KASSALAPP_API_SECRET` (Settings → Secrets and variables → Actions).
 - **ntfy (valgfritt):** finn på et hemmelig emnenavn, legg det som secret `NTFY_TOPIC`
   og abonner på samme navn i ntfy-appen.
-- **Varsler i GitHub-appen:** slå på push for «Issues»/«Participating» i GitHub-appen på telefonen.
+- **Push-varsler fra Tilbudsvakt:** legg den private VAPID-nøkkelen som repo-secret `VAPID_PRIVATE_KEY`
+  (den offentlige nøkkelen står i `app.js` og `scripts/sjekk.mjs`). Trykk så «Slå på varsler» i appen.
 
 ## Utvikling
 

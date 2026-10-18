@@ -26,7 +26,7 @@ concurrency:
 jobs:
   sjekk:
     # Ved issue-hendelser: bare når det gjelder et ønske.
-    if: github.event_name != 'issues' || contains(join(github.event.issue.labels.*.name, ','), 'ønske') || github.event.action == 'unlabeled'
+    if: github.event_name != 'issues' || (contains(join(github.event.issue.labels.*.name, ','), 'ønske') || contains(join(github.event.issue.labels.*.name, ','), 'push-abonnement')) || github.event.action == 'unlabeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,11 +38,15 @@ jobs:
       - name: Test matcheren
         run: npm test
 
+      - name: Installer push-bibliotek
+        run: npm install --no-save --no-audit --no-fund web-push@3
+
       - name: Hent tilbud og varsle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KASSALAPP_API_KEY: ${{ secrets.KASSALAPP_API_SECRET || secrets.KASSALAPP_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           TESTSOK: ${{ github.event.inputs.testsok }}
         run: node scripts/sjekk.mjs
 

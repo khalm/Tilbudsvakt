@@ -18,6 +18,9 @@ const REPO = process.env.GITHUB_REPOSITORY ?? 'khalm/tilbudsvakt';
 const GH_TOKEN = process.env.GITHUB_TOKEN ?? '';
 const KASSAL_KEY = process.env.KASSALAPP_API_KEY ?? '';
 const NTFY_TOPIC = process.env.NTFY_TOPIC ?? '';
+const VAPID_PRIVAT = process.env.VAPID_PRIVATE_KEY ?? '';
+const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
+const PUSH = 'push-abonnement'; // appen melder fra om telefonen som skal få varsler
 const TORR = () => process.env.DRY_RUN === '1'; // ingen kommentarer/varsler
 const ETIKETT = 'ønske';
 const ENDRING = 'ønske-endring'; // små hjelpe-issues fra appen: «legg til ord på ønske #N»
@@ -69,6 +72,7 @@ async function sikreEtikett() {
   for (const [name, color, description] of [
     [ETIKETT, '2f9e6e', 'Noe jeg trenger – Tilbudsvakt følger med på tilbud'],
     [ENDRING, 'c5def5', 'Endring på et ønske fra Tilbudsvakt-appen (lukkes automatisk)'],
+    [PUSH, 'f9d0c4', 'Slår på varsler fra Tilbudsvakt på en telefon (lukkes automatisk)'],
   ]) {
     try { await gh(`/labels/${encodeURIComponent(name)}`); }
     catch {
@@ -209,7 +213,64 @@ function linje(t) {
   return `- ${t.tittel} – ${t.butikk}: ${pris}${før}${start}${når}${lenke}`;
 }
 
-async function varsle(onske, nye) {
+// ---------- Push-varsler fra Tilbudsvakt selv (Web Push) ----------
+let webpush = null;
+async function pushKlar() {
+  if (!VAPID_PRIVAT) return false;
+  if (!webpush) {
+    try {
+      webpush = (await import('web-push')).default;
+      webpush.setVapidDetails('mailto:tilbudsvakt@users.noreply.github.com', VAPID_OFFENTLIG, VAPID_PRIVAT);
+    } catch (e) { console.warn('web-push mangler:', e.message); return false; }
+  }
+  return true;
+}
+
+/** Sender ett varsel til alle registrerte telefoner. Fjerner abonnement som ikke finnes lenger. */
+async function sendPush(abonnement, data) {
+  if (!(await pushKlar())) return;
+  for (const [nokkel, a] of Object.entries(abonnement)) {
+    try {
+      await webpush.sendNotification(a.sub, JSON.stringify(data), { TTL: 24 * 3600, urgency: 'high' });
+      a.sist = idag;
+    } catch (e) {
+      if (e.statusCode === 404 || e.statusCode === 410) delete abonnement[nokkel];
+      console.warn('Push feilet:', e.statusCode ?? e.message);
+    }
+  }
+}
+
+/** Leser nye «slå på varsler»-issues fra appen inn i data/push.json og lukker dem. */
+async function registrerTelefoner(abonnement) {
+  if (!GH_TOKEN) return;
+  const liste = await gh(`/issues?state=open&labels=${encodeURIComponent(PUSH)}&per_page=50`).catch(() => []);
+  for (const i of liste) {
+    let svar;
+    try {
+      const json = String(i.body ?? '').match(/\{[\s\S]*\}/)?.[0];
+      const sub = JSON.parse(json ?? '');
+      if (!sub?.endpoint?.startsWith('https://') || !sub.keys?.p256dh || !sub.keys?.auth) throw new Error('ugyldig abonnement');
+      const nokkel = sub.endpoint.slice(-40);
+      abonnement[nokkel] = { sub: { endpoint: sub.endpoint, keys: sub.keys }, fra: idag, sist: idag };
+      if (await pushKlar()) {
+        await sendPush({ [nokkel]: abonnement[nokkel] }, {
+          tittel: 'Varsler er slått på ✔', tekst: 'Du får beskjed her når noe du trenger kommer på tilbud.', url: APP_URL,
+        });
+        svar = '✔ Varsler er slått på for denne telefonen.';
+      } else {
+        svar = '⚠️ Telefonen er registrert, men nøkkelen `VAPID_PRIVATE_KEY` mangler i repo-secrets, så varsler kan ikke sendes ennå.';
+      }
+    } catch (e) {
+      svar = `Klarte ikke å slå på varsler: ${e.message}`;
+    }
+    // Abonnementet ligger nå i data/push.json; fjern det fra issue-teksten.
+    await gh(`/issues/${i.number}`, { method: 'PATCH', body: JSON.stringify({ body: '(registrert)', state: 'closed', state_reason: 'completed' }) }).catch(() => {});
+    await gh(`/issues/${i.number}/comments`, { method: 'POST', body: JSON.stringify({ body: svar }) }).catch(() => {});
+    console.log(svar);
+  }
+}
+
+async function varsle(onske, nye, abonnement = {}) {
   if (TORR() || !nye.length) return;
   // Maks tre per butikk (nettbutikker har ofte mange varianter av samme vare), billigst først.
   const perButikk = {};
@@ -220,6 +281,16 @@ async function varsle(onske, nye) {
   if (GH_TOKEN) {
     await gh(`/issues/${onske.nr}/comments`, { method: 'POST', body: JSON.stringify({ body: tekst.join('\n') }) })
       .catch((e) => console.warn(`Kommentar på #${onske.nr} feilet:`, e.message));
+  }
+  if (Object.keys(abonnement).length) {
+    const b = nye[0];
+    await sendPush(abonnement, {
+      tittel: `${nye.length === 1 ? 'Tilbud' : `${nye.length} tilbud`} på ${onske.tittel}`,
+      tekst: nye.slice(0, 3).map((t) => `${t.tittel} – ${t.butikk} ${kr(t.pris)}`).join('\n'),
+      bilde: b.bilde ?? undefined,
+      url: APP_URL,
+      tag: `onske-${onske.nr}`,
+    });
   }
   if (NTFY_TOPIC) {
     const billigst = nye[0];
@@ -243,6 +314,8 @@ async function main() {
   const testsok = (process.env.TESTSOK ?? '').trim();
   await sikreEtikett();
   if (!testsok) await utforEndringer();
+  const abonnement = await lesJson('push.json', {});
+  if (!testsok) await registrerTelefoner(abonnement);
   // Testsøk: lat som det finnes ett ønske, vis resultatet i loggen, lagre/varsle ingenting.
   const onsker = testsok ? [{ nr: 0, tittel: testsok, makspris: null, ekstra: [], unnga: [], butikker: [] }] : await hentOnsker();
   if (testsok) process.env.DRY_RUN = '1';
@@ -298,7 +371,7 @@ async function main() {
     const liste = [...unike.values()].sort((a, b) => (a.pris ?? 1e9) - (b.pris ?? 1e9));
     const nye = liste.filter((t) => !sett[`${onske.nr}|${t.id}|${t.pris}`]);
     for (const t of liste) sett[`${onske.nr}|${t.id}|${t.pris}`] ??= idag;
-    await varsle(onske, nye);
+    await varsle(onske, nye, abonnement);
     console.log(`#${onske.nr} ${onske.tittel}: ${liste.length} treff (${nye.length} nye) – søkte på ${termer.join(', ')}`);
 
     const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
@@ -320,6 +393,7 @@ async function main() {
 
   await skrivJson('funn.json', { versjon: VERSJON, oppdatert: nå.toISOString(), kilder, laerte, onsker: resultat });
   await skrivJson('sett.json', sett);
+  await skrivJson('push.json', abonnement);
   await skrivJson('historikk.json', historikk);
 }
 

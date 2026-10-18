@@ -171,3 +171,10 @@ button.brikke { font: inherit; font-size: .8rem; border: 1.5px solid transparent
 .knapp.liten-knapp { background: var(--merke); color: #fff; border: 0; padding: 8px 14px; min-height: 40px; font-size: .9rem; }
 .knapp:disabled { opacity: .45; cursor: default; }
 @media (prefers-color-scheme: dark) { .knapp.liten-knapp, .brikke.valg.valgt { color: #0b1a14; } }
+
+.varsler-rad { max-width: 680px; margin: 10px auto 0; }
+.varsel-knapp {
+  background: #fff; color: var(--merke); border: 0; padding: 8px 14px; min-height: 40px; font-size: .9rem;
+}
+.varsel-knapp.paa { background: rgb(255 255 255 / 16%); color: #fff; cursor: default; }
+@media (prefers-color-scheme: dark) { .varsel-knapp { background: var(--merke); color: #0b1a14; } }
