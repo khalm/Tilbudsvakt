@@ -1,6 +1,6 @@
 {
-  "sok": "ved",
-  "tid": "2026-10-18T20:35:31.478Z",
+  "sok": "teskjeer",
+  "tid": "2026-10-18T20:36:48.267Z",
   "kilder": {
     "tjek": {
       "status": "ok",
@@ -12,123 +12,12 @@
     }
   },
   "termer": [
-    "ved",
-    "bjørkeved",
-    "blandingsved",
-    "furuved",
-    "granved",
-    "eikeved",
-    "vedsekk",
-    "vedsekker",
-    "storsekk ved",
-    "kubber",
-    "kubbe",
-    "kløyvd ved",
-    "vedkubber"
+    "teskjeer",
+    "teskje",
+    "teskjer",
+    "kaffeskje",
+    "kaffeskjeer"
   ],
-  "unnga": [
-    "vedovn",
-    "vedkurv",
-    "vedstativ",
-    "vedkløyver",
-    "vedlikehold"
-  ],
-  "funn": [
-    {
-      "kilde": "kassalapp",
-      "id": "kassal:9906",
-      "tittel": "Rødbeter Skivede 490g First Price",
-      "beskrivelse": "First price Unil as",
-      "butikk": "SPAR",
-      "pris": 22.4,
-      "forpris": 24.9,
-      "fra": null,
-      "til": null,
-      "bilde": "https://bilder.ngdata.no/7311041084854/kmh/large.jpg",
-      "lenke": "https://spar.no/nettbutikk/varer/middagstilbehor/hermetisk-gront/hermetiske-rodbeter/rodbeter-7311041084854",
-      "merknad": "Ned 10 % siste 60 dager",
-      "traff": "ved",
-      "grunn": "sammensatt"
-    },
-    {
-      "kilde": "tjek",
-      "id": "tjek:9krWI3BUpHwJNPpt4UIG5",
-      "tittel": "ALLE LED KUBBE OG STAKELYS",
-      "beskrivelse": "7x12 cm 7x15 cm Art. 527690 Større utvalg på nett og i butikk.",
-      "butikk": "Spar Kjøp",
-      "pris": 47.94,
-      "forpris": null,
-      "fra": "2026-10-11T22:00:00+0000",
-      "til": "2026-10-25T22:59:59+0000",
-      "bilde": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2F7mmruqZv%2Fp-7.webp&w=600&x1r=0.04&x2r=0.5&y1r=0.64&y2r=0.95&s=47345a290570328a2626a351487d0800",
-      "lenke": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2F7mmruqZv%2Fp-7.webp&w=1000&x1r=0.04&x2r=0.5&y1r=0.64&y2r=0.95&s=326c607997b1793c012962bd0c885560",
-      "merknad": "Kundeavis",
-      "traff": "kubber",
-      "grunn": "bøyning"
-    },
-    {
-      "kilde": "tjek",
-      "id": "tjek:MrNfGVfdW2HdLEFXahsMI",
-      "tittel": "BJØRKEVED",
-      "beskrivelse": "10 kg. Ord.pris 59,90 197850",
-      "butikk": "Europris",
-      "pris": 49.9,
-      "forpris": 59.9,
-      "fra": "2026-10-18T22:00:00+0000",
-      "til": "2026-10-24T21:59:59+0000",
-      "bilde": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2F31wVDAgI%2Fp-8.webp&w=600&x1r=0.02&x2r=0.21&y1r=0.735&y2r=0.96&s=28d76b844c09c9fef30b5027c59ae820",
-      "lenke": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2F31wVDAgI%2Fp-8.webp&w=1000&x1r=0.02&x2r=0.21&y1r=0.735&y2r=0.96&s=b189b92d989cd6764ab50748c3a62885",
-      "merknad": "Kundeavis",
-      "traff": "ved",
-      "grunn": "sammensatt"
-    },
-    {
-      "kilde": "tjek",
-      "id": "tjek:zvI5LgJhIXKas57QnN7N0",
-      "tittel": "BJØRKEVED",
-      "beskrivelse": "9052044.\n40 liter (ca. 15 kg)",
-      "butikk": "jem & fix",
-      "pris": 69,
-      "forpris": null,
-      "fra": "2026-10-10T22:00:00+0000",
-      "til": "2026-10-24T21:59:59+0000",
-      "bilde": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2FlhHrQKJo%2Fp-1.webp&w=600&x1r=0.02&x2r=0.67&y1r=0.34&y2r=0.77&s=e1ef2d19893505e010039bd8d08df795",
-      "lenke": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2FlhHrQKJo%2Fp-1.webp&w=1000&x1r=0.02&x2r=0.67&y1r=0.34&y2r=0.77&s=0288ce480713cd25c6802b61ba3a43a1",
-      "merknad": "Kundeavis",
-      "traff": "ved",
-      "grunn": "sammensatt"
-    },
-    {
-      "kilde": "tjek",
-      "id": "tjek:w-VSBbOdxX10x01ImmJXn",
-      "tittel": "Bjørkeved",
-      "beskrivelse": "Clean Flame Bjørkeved 40l",
-      "butikk": "MAXBO",
-      "pris": 79,
-      "forpris": null,
-      "fra": "2026-10-06T22:00:00+0000",
-      "til": "2026-10-21T21:59:59+0000",
-      "bilde": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2FM4qrSAyM%2Fp-replacement-CBmeksGO-8.webp&w=600&x1r=0.344&x2r=0.97&y1r=0.021&y2r=0.55&s=1acf9f1365139f1ab73327bdbf9bfd47",
-      "lenke": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2FM4qrSAyM%2Fp-replacement-CBmeksGO-8.webp&w=1000&x1r=0.344&x2r=0.97&y1r=0.021&y2r=0.55&s=eb10d08e19a301b609596bbc3e0ced6d",
-      "merknad": "Kundeavis",
-      "traff": "ved",
-      "grunn": "sammensatt"
-    },
-    {
-      "kilde": "tjek",
-      "id": "tjek:Q1CwQkRAODECok7QrTXJg",
-      "tittel": "Bjørkeved 40 L",
-      "beskrivelse": "Art. 4557",
-      "butikk": "Byggmax",
-      "pris": 789,
-      "forpris": null,
-      "fra": "2026-10-13T22:00:00+0000",
-      "til": "2026-10-25T22:59:59+0000",
-      "bilde": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2FnF3s3LDr%2Fp-3.webp&w=600&x1r=0&x2r=0.54&y1r=0.56&y2r=0.84&s=652e60c95bdf1b8f241db53dae565285",
-      "lenke": "https://image-transformer-api.tjek.com/?u=s3%3A%2F%2Fsgn-prd-assets%2Fuploads%2FnF3s3LDr%2Fp-3.webp&w=1000&x1r=0&x2r=0.54&y1r=0.56&y2r=0.84&s=110658b05d90b4a2ccf3380b58adcbff",
-      "merknad": "Kundeavis",
-      "traff": "ved",
-      "grunn": "sammensatt"
-    }
-  ]
+  "unnga": [],
+  "funn": []
 }
