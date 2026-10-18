@@ -152,6 +152,22 @@ async function api(req, env, url) {
     });
   }
 
+  // Prishistorikk for en dagligvare (Kassalapp, siste 90 dager i alle butikker).
+  if (sti === 'historikk' && req.method === 'GET') {
+    const ean = (url.searchParams.get('ean') ?? '').replace(/[^0-9]/g, '');
+    if (!ean || !env.KASSALAPP_KEY) return json({ data: [] });
+    if (!(await env.TILBUD.get(`u:${id}`))) return feil(403, 'ukjent bruker');
+    const svar = await fetch('https://kassal.app/api/v1/products/prices-bulk', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.KASSALAPP_KEY}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eans: [ean], days: 90 }),
+    });
+    return new Response(svar.body, {
+      status: svar.ok ? 200 : 502,
+      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, max-age=3600' },
+    });
+  }
+
   let bruker = await lesBruker(env, id);
   const ny = () => ({ opprettet: new Date().toISOString(), onsker: [], push: {} });
 

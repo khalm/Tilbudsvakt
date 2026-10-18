@@ -23,13 +23,17 @@ const tjek = fraTjek(await kall(`sok?kilde=tjek&q=${encodeURIComponent(ord)}`));
 const kassal = fraKassal(await kall(`sok?kilde=kassal&q=${encodeURIComponent(ord)}`));
 const treff = finnTreff([...tjek, ...kassal], o, plan);
 const admin = await kall('admin/brukere', 'GET', null, { Authorization: `Bearer ${ADMIN}` });
+const medEan = kassal.find((x) => x.ean);
+const hist = medEan ? await kall(`historikk?ean=${medEan.ean}`) : null;
+const histEksempel = hist ? JSON.stringify(hist).slice(0, 1500) : null;
 const app = await (await fetch(`${API}/`)).text();
 await kall(`onsker/${o.id}`, 'DELETE');
 const resultat = {
   tid: new Date().toISOString(), ord, logg,
   tjekTilbud: tjek.length, kassalProdukter: kassal.length, treff: treff.length,
   eksempler: treff.slice(0, 5).map((t) => `${t.pris} ${t.tittel} (${t.butikk})`),
-  adminOk: Array.isArray(admin), appHarVersjon: /v\d+\.\d+\.\d+/.exec(app)?.[0] ?? null,
+  adminOk: Array.isArray(admin), histProdukt: medEan ? `${medEan.tittel} (${medEan.ean})` : null, histEksempel,
+  kassalHistorikkISok: kassal.slice(0, 3).map((x) => x.historikk?.length ?? 0), appHarVersjon: /v\d+\.\d+\.\d+/.exec(app)?.[0] ?? null,
 };
 console.log(resultat);
 await writeFile(new URL('../data/selvtest.json', import.meta.url), JSON.stringify(resultat, null, 2) + '\n');
