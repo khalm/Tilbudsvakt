@@ -1,6 +1,6 @@
 {
-  "sok": "bil",
-  "tid": "2026-10-18T20:47:46.431Z",
+  "sok": "teskje",
+  "tid": "2026-10-18T20:50:15.372Z",
   "kilder": {
     "tjek": {
       "status": "ok",
@@ -12,22 +12,31 @@
     }
   },
   "termer": [
-    "bil"
+    "teskje",
+    "teskjeer",
+    "teskjer",
+    "kaffeskje",
+    "kaffeskjeer"
   ],
   "unnga": [],
-  "ordbok": [
-    "motorvogn"
-  ],
+  "ordbok": [],
   "ordbokStatus": {
-    "wiktionary": 1,
+    "wiktionary": 0,
     "conceptnet": 0
   },
   "forslag": [
     {
-      "ord": "motorvogn",
-      "poeng": 100,
+      "ord": "spiseskje",
+      "poeng": 45,
       "kilder": [
-        "ordbok"
+        "beslektet"
+      ]
+    },
+    {
+      "ord": "suppeskje",
+      "poeng": 45,
+      "kilder": [
+        "beslektet"
       ]
     }
   ],
