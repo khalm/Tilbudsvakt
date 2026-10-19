@@ -1,10 +1,14 @@
 // Tilbudsvakt service worker: appen virker uten nett, data hentes ferskt når mulig.
-const CACHE = 'tilbudsvakt-v2.5.0';
+const CACHE = 'tilbudsvakt-v2.5.1';
 const SKALL = ['./', 'index.html', 'style.css', 'app.js', 'lib/matcher.js', 'lib/synonymer.js', 'lib/forslag.js', 'lib/tilbud.js', 'lib/historikk.js',
   'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SKALL)).then(() => self.skipWaiting()));
+  // cache: 'reload' = hent rett fra nettet, aldri fra nettleserens mellomlager.
+  e.waitUntil(caches.open(CACHE)
+    .then((c) => c.addAll(SKALL.map((u) => new Request(u, { cache: 'reload' }))))
+    .catch(() => {})
+    .then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
@@ -13,9 +17,11 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/api/') || url.pathname.endsWith('config.json')) return;
-  // Nett først (så nye versjoner kommer med en gang), cache som reserve.
-  e.respondWith(fetch(e.request)
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/api/')
+    || url.pathname.endsWith('config.json') || url.pathname.endsWith('versjon.json')) return;
+  // Nett først, forbi nettleserens mellomlager (så nye versjoner kommer med en gang), cache som reserve uten nett.
+  e.respondWith(fetch(e.request.url, { cache: 'no-cache', credentials: 'same-origin' })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r; })
     .then((r) => { const kopi = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, kopi)); return r; })
     .catch(() => caches.match(e.request, { ignoreSearch: true })));
 });

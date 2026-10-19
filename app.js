@@ -3,7 +3,7 @@ import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
 import { oppsummer, sparklinje, fraKassalBulk, slaSammen } from './lib/historikk.js';
 
-const VERSJON = '2.5.0';
+const VERSJON = '2.5.1';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
@@ -44,6 +44,7 @@ const T = {
     kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 tilbud' : `${n} tilbud`} på «${o}» nå – billigst ${p}.`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
+    oppdaterer: (v) => `Henter ny versjon (v${v}) …`, oppdatertOk: 'Oppdatert ✔',
     fraPris: (p, b) => `billigst ${p} hos ${b}`, apne: 'Vis tilbud', lukk: 'Skjul',
     apneAlle: 'Åpne alle', lukkAlle: 'Lukk alle',
     eksakt: 'Bare dette ordet', eksaktHjelp: '(ingen synonymer)', eksaktMerke: 'Bare dette ordet',
@@ -111,6 +112,7 @@ const T = {
     kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 offer' : `${n} offers`} on “${o}” now – cheapest ${p}.`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
+    oppdaterer: (v) => `Getting the new version (v${v}) …`, oppdatertOk: 'Up to date ✔',
     fraPris: (p, b) => `cheapest ${p} at ${b}`, apne: 'Show offers', lukk: 'Hide',
     apneAlle: 'Expand all', lukkAlle: 'Collapse all',
     eksakt: 'Only this word', eksaktHjelp: '(no synonyms)', eksaktMerke: 'Only this word',
@@ -820,7 +822,16 @@ $('#valg-eksakt').addEventListener('click', () => { $('#ny-eksakt').checked = tr
 $('#ny-ord').addEventListener('input', () => { if (!$('#ny-ord').value.trim()) $('#ny-eksakt').checked = false; });
 $('#ny-ord').addEventListener('input', () => { if (!$('#ny-ord').value.trim()) fjernede.clear(); });
 $('#test-ord').addEventListener('input', tegnTest);
-$('#oppdater').addEventListener('click', lastInn);
+$('#oppdater').addEventListener('click', async () => {
+  const k = $('#oppdater');
+  k.disabled = true;
+  k.textContent = t('laster');
+  await sjekkVersjon();
+  await lastInn();
+  k.disabled = false;
+  k.textContent = t('oppdater');
+  if (!serverFeil && !utenNett) visBeskjed(t('oppdatertOk'), 2500);
+});
 $('#veksle-alle').addEventListener('click', () => {
   if (apneOnsker.size) apneOnsker.clear(); else onsker.forEach((o) => apneOnsker.add(o.id));
   lagreApne();
@@ -866,5 +877,27 @@ API = await finnApi();
 lastInn();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').then(() => tegnVarselKnapp()).catch(() => {});
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(() => tegnVarselKnapp()).catch(() => {});
 }
+
+// ---------- Automatisk oppdatering ----------
+// Sjekker om en nyere versjon er publisert. I så fall: tøm mellomlageret og last siden på nytt.
+async function sjekkVersjon() {
+  try {
+    const r = await fetch(`versjon.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const { versjon } = await r.json();
+    if (!versjon || versjon === VERSJON) return;
+    // Unngå evig løkke hvis noe er galt: maks ett forsøk per versjon per økt.
+    const forsok = `oppdatert-til-${versjon}`;
+    if (sessionStorage.getItem(forsok)) return;
+    sessionStorage.setItem(forsok, '1');
+    visBeskjed(t('oppdaterer')(versjon), 4000);
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update().catch(() => {});
+    if ('caches' in window) for (const k of await caches.keys()) await caches.delete(k);
+    location.reload();
+  } catch {}
+}
+sjekkVersjon();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sjekkVersjon(); });

@@ -59,6 +59,10 @@ jobs:
           mkdir -p dist
           cp index.html app.js style.css sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png dist/
           cp -r lib dist/lib
+          # Versjonen appen sjekker mot, så telefonen henter ny versjon av seg selv.
+          node -e "process.stdout.write(JSON.stringify({versjon: require('./package.json').version}))" > dist/versjon.json
+          # Nettleseren skal alltid spørre etter nyeste fil (no-cache = sjekk før bruk).
+          printf '/*\n  Cache-Control: no-cache\n' > dist/_headers
 
       - name: Publiser til Cloudflare
         run: npx --yes wrangler@3 deploy
