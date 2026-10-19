@@ -170,8 +170,8 @@ async function sjekkOnske(onske, laerte, historikk, blokkert = [], prisspor = {}
     prisspor[k] = leggTilSpor(prisspor[k], idag, t.pris, 365);
     t.spor = tynn(prisspor[k]);
   }
-  const { liste: ordbok, status: ordbokStatus } = await hentOrdboker(onske.tittel);
-  const forslag = rangerForslag({ plan, ordbok, avviste, laerte: laerte.filter((g) => brett(g[0]) !== brett(onske.tittel)) });
+  const { liste: ordbok, status: ordbokStatus } = plan.eksakt ? { liste: [], status: {} } : await hentOrdboker(onske.tittel);
+  const forslag = plan.eksakt ? [] : rangerForslag({ plan, ordbok, avviste, laerte: laerte.filter((g) => brett(g[0]) !== brett(onske.tittel)) });
   return { plan, termer, funn, forslag, ordbok, ordbokStatus };
 }
 

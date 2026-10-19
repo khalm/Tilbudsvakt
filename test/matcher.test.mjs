@@ -95,3 +95,22 @@ test('blokkerte butikker', async () => {
   assert.ok(!butikkBlokkert('Coop Extra', ['Coop']));
   assert.ok(!butikkBlokkert('Jysk', []));
 });
+
+test('«Bare dette ordet»: ingen synonymer eller skrivefeil, men bøyning og sammensatt teller', () => {
+  const p = utvid({ tittel: 'håndkle', eksakt: true });
+  assert.deepEqual(p.termer, ['håndkle']);
+  assert.ok(p.eksakt);
+  assert.ok(treff('Håndkle 50x70', p));
+  assert.ok(treff('Håndkleet grå', p));
+  assert.ok(treff('Badehåndkle 70x140', p));
+  assert.ok(!treff('Håndklede 50x70', p));
+  assert.ok(!treff('Frotté håndduk', p));
+  assert.ok(!treff('Tørkepapir', p));
+  assert.ok(!treff('Håndklestativ', p));
+  // Unngå-ord fra synonymlisten brukes fortsatt
+  assert.ok(!treff('Q sjokolademelk', utvid({ tittel: 'melk', eksakt: true })));
+  // Skrivefeil tåles ikke
+  assert.ok(!treff('Håndkle 50x70', utvid({ tittel: 'håndklde', eksakt: true })));
+  // Andre ord brukeren selv har skrevet, er med
+  assert.ok(treff('Badelaken', utvid({ tittel: 'håndkle', eksakt: true, ekstra: ['badelaken'] })));
+});

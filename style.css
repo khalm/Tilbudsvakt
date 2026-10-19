@@ -230,3 +230,23 @@ button.brikke { font: inherit; font-size: .8rem; border: 1.5px solid transparent
 
 .varsler-rad { display: flex; flex-wrap: wrap; gap: 8px; }
 .prisjakt { display: inline-block; margin-top: 4px; font-size: .82rem; }
+
+.bryter { display: flex; align-items: center; gap: 10px; margin-top: 10px; cursor: pointer; font-size: .92rem; }
+.bryter input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.bryter-spor {
+  flex: none; position: relative; width: 42px; height: 24px; border-radius: 99px;
+  background: var(--linje); transition: background .15s;
+}
+.bryter-spor::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 25%); transition: transform .15s;
+}
+.bryter input:checked + .bryter-spor { background: var(--merke); }
+.bryter input:checked + .bryter-spor::after { transform: translateX(18px); }
+.bryter input:focus-visible + .bryter-spor { box-shadow: 0 0 0 3px var(--merke-lys); }
+.rediger .bryter { color: var(--tekst); }
+.merke-eksakt {
+  display: inline-block; margin-top: 4px; font-size: .75rem; font-weight: 600;
+  background: var(--merke-lys); color: var(--merke); padding: 2px 8px; border-radius: 99px;
+}
+.lenkeknapp { border: 0; background: none; padding: 0; font: inherit; color: var(--merke); text-decoration: underline; cursor: pointer; }

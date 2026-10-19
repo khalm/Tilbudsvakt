@@ -59,6 +59,7 @@ function rensOnske(inn, gammelt = {}) {
     unnga: rensListe(inn.unnga ?? gammelt.unnga),
     fjern: rensListe(inn.fjern ?? gammelt.fjern),
     butikker: rensListe(inn.butikker ?? gammelt.butikker),
+    eksakt: Boolean('eksakt' in inn ? inn.eksakt : gammelt.eksakt),
     opprettet: gammelt.opprettet ?? new Date().toISOString(),
     endret: new Date().toISOString(),
   };

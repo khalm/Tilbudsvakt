@@ -3,7 +3,7 @@ import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
 import { oppsummer, sparklinje, fraKassalBulk, slaSammen } from './lib/historikk.js';
 
-const VERSJON = '2.3.0';
+const VERSJON = '2.4.0';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
@@ -44,6 +44,9 @@ const T = {
     kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 tilbud' : `${n} tilbud`} på «${o}» nå – billigst ${p}.`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
+    eksakt: 'Bare dette ordet', eksaktHjelp: '(ingen synonymer)', eksaktMerke: 'Bare dette ordet',
+    eksaktForklaring: 'Søker bare etter ordet du skrev (også f.eks. «badehåndkle» og «håndkleet»), ikke synonymer.',
+    medSynonymer: 'Søk også etter synonymer',
     installer: '📲 Installer appen', installert: 'Tilbudsvakt er installert ✔ Du finner den på startskjermen.',
     installerHjelp: 'Trykk ⋮ øverst til høyre i Chrome og velg «Installer app» eller «Legg til på startskjermen».',
     installerHjelpIos: 'Trykk Del-knappen nederst i Safari og velg «Legg til på Hjem-skjerm».',
@@ -104,6 +107,9 @@ const T = {
     kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 offer' : `${n} offers`} on “${o}” now – cheapest ${p}.`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
+    eksakt: 'Only this word', eksaktHjelp: '(no synonyms)', eksaktMerke: 'Only this word',
+    eksaktForklaring: 'Searches only for the word you typed (incl. compounds and inflections), not synonyms.',
+    medSynonymer: 'Also search for synonyms',
     installer: '📲 Install app', installert: 'Tilbudsvakt is installed ✔ You’ll find it on your home screen.',
     installerHjelp: 'Tap ⋮ at the top right in Chrome and choose “Install app” or “Add to Home screen”.',
     installerHjelpIos: 'Tap the Share button at the bottom of Safari and choose “Add to Home Screen”.',
@@ -378,6 +384,11 @@ function forslagHtml(o, forslag) {
 function redigerHtml(o) {
   return `
     <form class="rediger" data-id="${esc(o.id)}">
+      <label class="bryter">
+        <input type="checkbox" name="eksakt"${o.eksakt ? ' checked' : ''}>
+        <span class="bryter-spor" aria-hidden="true"></span>
+        <span><b>${esc(t('eksakt'))}</b> <span class="liten svak">${esc(t('eksaktHjelp'))}</span></span>
+      </label>
       <label><span>${esc(t('makspris'))}</span><input name="makspris" type="number" inputmode="decimal" min="0" step="any" value="${esc(o.makspris ?? '')}"></label>
       <label><span>${esc(t('andreOrd'))}</span><input name="ekstra" type="text" value="${esc(o.ekstra.join(', '))}"></label>
       <label><span>${esc(t('unnga'))}</span><input name="unnga" type="text" value="${esc(o.unnga.join(', '))}"></label>
@@ -417,13 +428,17 @@ function tegnOnsker() {
           <div>
             <h3>${esc(o.tittel)}</h3>
             ${meta ? `<p class="liten">${esc(meta)}</p>` : ''}
+            ${o.eksakt ? `<span class="merke-eksakt" title="${esc(t('eksaktForklaring'))}">🎯 ${esc(t('eksaktMerke'))}</span>` : ''}
           </div>
           <span class="teller${liste.length ? ' aktiv' : ''}">${esc(t('tilbud')(liste.length))}</span>
         </header>
-        <div class="brikker">${brikker(plan.termer.filter((x) => brett(x) !== brett(o.tittel)), 6, true)}</div>
+        ${o.eksakt
+          ? `<p class="liten svak">${esc(t('eksaktForklaring'))} <button type="button" class="lenkeknapp" data-gjor="synonymer">${esc(t('medSynonymer'))}</button></p>
+             ${o.ekstra.length ? `<div class="brikker">${brikker(plan.termer.filter((x) => brett(x) !== brett(o.tittel)), 6, true)}</div>` : ''}`
+          : `<div class="brikker">${brikker(plan.termer.filter((x) => brett(x) !== brett(o.tittel)), 6, true)}</div>`}
         ${o.fjern?.length ? `<p class="liten svak">${esc(t('fjernet'))}: ${o.fjern.map((f) => `<button type="button" class="angre" data-angre="${esc(f)}">${esc(f)} ↺</button>`).join(' ')}</p>` : ''}
         ${tilbudDel}
-        ${redigerer === o.id ? redigerHtml(o) : forslagHtml(o, r.forslag)}
+        ${redigerer === o.id ? redigerHtml(o) : o.eksakt ? '' : forslagHtml(o, r.forslag)}
         <div class="handlinger">
           <button type="button" class="knapp tekst" data-gjor="sjekk"${sjekker ? ' disabled' : ''}>${esc(t('sjekkNaa'))}</button>
           <button type="button" class="knapp tekst" data-gjor="endre">${esc(t('endre'))}</button>
@@ -438,9 +453,10 @@ function tegnForhand() {
   const ekstra = liste($('#ny-ekstra').value);
   const boks = $('#forhand');
   if (!tittel) { boks.hidden = true; return; }
-  const plan = utvid({ tittel, ekstra, unnga: liste($('#ny-unnga').value), fjern: [...fjernede] });
+  const eksakt = $('#ny-eksakt').checked;
+  const plan = utvid({ tittel, ekstra, unnga: liste($('#ny-unnga').value), fjern: [...fjernede], eksakt });
   const andre = plan.termer.filter((x) => brett(x) !== brett(tittel));
-  const kanskje = beslektet(plan, undefined, funn?.laerte ?? []).slice(0, 8).map((x) => x.ord);
+  const kanskje = eksakt ? [] : beslektet(plan, undefined, funn?.laerte ?? []).slice(0, 8).map((x) => x.ord);
   const fjernetHer = [...fjernede].filter((f) => utvid({ tittel, ekstra }).termer.some((x) => brett(x) === brett(f)));
   boks.hidden = !andre.length && !kanskje.length && !fjernetHer.length;
   $('#forhand-brikker').innerHTML = brikker(andre, 10, true)
@@ -604,11 +620,13 @@ $('#ny-form').addEventListener('submit', async (e) => {
     unnga: liste($('#ny-unnga').value),
     fjern: [...fjernede],
     butikker: liste($('#ny-butikker').value),
+    eksakt: $('#ny-eksakt').checked,
   };
   const knapp = e.target.querySelector('button[type=submit]');
   knapp.disabled = true;
   try {
     e.target.reset();
+    $('#ny-eksakt').checked = data.eksakt;
     fjernede.clear();
     tegnForhand();
     await leggTilOnske(data);
@@ -678,6 +696,9 @@ $('#onsker').addEventListener('click', async (e) => {
     const felt = gjor === 'legg-til' ? 'ekstra' : 'unnga';
     await oppdaterOnske(o, { [felt]: [...new Set([...o[felt], ...valgte])] }).catch(feilmelding);
     if (gjor === 'legg-til') sjekkNa(onsker.find((x) => x.id === o.id)).catch(() => {});
+  } else if (gjor === 'synonymer') {
+    const ny = await oppdaterOnske(o, { eksakt: false }).catch(feilmelding);
+    if (ny) sjekkNa(ny).catch(() => {});
   } else if (gjor === 'sjekk') {
     sjekkNa(o).then((treff) => treff && visBeskjed(treff.length ? t('funnetNaa')(o.tittel, treff.length, kr(treff[0].pris)) : t('ingenNaa')(o.tittel)))
       .catch(feilmelding);
@@ -713,6 +734,7 @@ $('#onsker').addEventListener('submit', async (e) => {
       ekstra: liste(f.get('ekstra')),
       unnga: liste(f.get('unnga')),
       butikker: liste(f.get('butikker')),
+      eksakt: f.get('eksakt') === 'on',
     });
     sjekkNa(ny).catch(() => {});
   } catch (err) { visBeskjed(`${t('serverFeil')} (${err.message})`); }
@@ -740,6 +762,7 @@ $('#blokk-form').addEventListener('submit', (e) => {
 });
 
 ['#ny-ord', '#ny-ekstra', '#ny-unnga'].forEach((s) => $(s).addEventListener('input', tegnForhand));
+$('#ny-eksakt').addEventListener('change', () => { lagre('sistEksakt', $('#ny-eksakt').checked); tegnForhand(); });
 $('#ny-ord').addEventListener('input', () => { if (!$('#ny-ord').value.trim()) fjernede.clear(); });
 $('#test-ord').addEventListener('input', tegnTest);
 $('#oppdater').addEventListener('click', lastInn);
@@ -776,6 +799,7 @@ $('#kode-form').addEventListener('submit', async (e) => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) lastInn(); });
 
 // ---------- Oppstart ----------
+$('#ny-eksakt').checked = hentLagret('sistEksakt') === true;
 $('#versjon').textContent = `v${VERSJON}`;
 $('#bunn-versjon').textContent = `Tilbudsvakt v${VERSJON}`;
 tegn(true);
