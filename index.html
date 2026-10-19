@@ -17,7 +17,7 @@
       <img src="icon.svg" alt="" class="logo" width="40" height="40">
       <div class="merke">
         <h1>Tilbudsvakt</h1>
-        <span class="versjon" id="versjon">v2.4.1</span>
+        <span class="versjon" id="versjon">v2.5.0</span>
       </div>
       <button class="sprak" id="sprak" type="button" aria-label="Bytt språk">EN</button>
     </div>
@@ -64,7 +64,10 @@
     <section aria-labelledby="liste-tittel">
       <div class="seksjon-topp">
         <h2 id="liste-tittel" data-t="listeTittel">Ønskelisten din</h2>
-        <button class="knapp tekst" id="oppdater" type="button" data-t="oppdater">Oppdater</button>
+        <div class="seksjon-knapper">
+          <button class="knapp tekst" id="veksle-alle" type="button" hidden>Åpne alle</button>
+          <button class="knapp tekst" id="oppdater" type="button" data-t="oppdater">Oppdater</button>
+        </div>
       </div>
       <div id="onsker" class="onsker"><p class="tom" data-t="laster">Laster …</p></div>
     </section>
@@ -106,7 +109,7 @@
   </main>
 
   <footer class="bunn">
-    <span id="bunn-versjon">Tilbudsvakt v2.4.1</span> ·
+    <span id="bunn-versjon">Tilbudsvakt v2.5.0</span> ·
     <a id="repo-lenke" href="https://github.com/khalm/tilbudsvakt" target="_blank" rel="noopener">Kildekode</a>
   </footer>
 

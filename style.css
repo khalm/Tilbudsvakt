@@ -110,8 +110,22 @@ input:focus { outline: none; border-color: var(--merke); box-shadow: 0 0 0 3px v
 .tom { color: var(--svak); text-align: center; padding: 24px 8px; }
 
 .onske.har-tilbud { border-color: color-mix(in srgb, var(--signal) 45%, var(--linje)); }
-.onske-topp { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-.onske-topp h3::first-letter { text-transform: uppercase; }
+.onske { padding: 0; }
+.onske-topp {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; min-height: 60px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: var(--radius);
+}
+.onske-topp:focus-visible { outline: 2px solid var(--merke); outline-offset: -2px; }
+.onske-navn { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.onske-navn .tittel { font-weight: 700; font-size: 1.08rem; line-height: 1.25; }
+.onske-navn .tittel::first-letter { text-transform: uppercase; }
+.sammendrag { font-size: .82rem; color: var(--svak); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pil { flex: none; font-size: 1.5rem; line-height: 1; color: var(--svak); transition: transform .15s; }
+.onske.apen .pil { transform: rotate(90deg); }
+.onske-innhold { padding: 0 16px 14px; }
+.onske-innhold[hidden] { display: none; }
+.seksjon-knapper { display: flex; gap: 4px; }
+.onske-navn .merke-eksakt { margin: 0; padding: 0 4px; font-size: .8rem; background: none; }
 .teller {
   flex: none; font-size: .8rem; font-weight: 600; color: var(--svak);
   border: 1px solid var(--linje); padding: 2px 10px; border-radius: 99px;

@@ -3,7 +3,7 @@ import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
 import { oppsummer, sparklinje, fraKassalBulk, slaSammen } from './lib/historikk.js';
 
-const VERSJON = '2.4.1';
+const VERSJON = '2.5.0';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
@@ -44,10 +44,12 @@ const T = {
     kilde: { ordbok: 'ordbok', beslektet: 'synonymliste', laert: 'fra dine ønsker' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 tilbud' : `${n} tilbud`} på «${o}» nå – billigst ${p}.`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
+    fraPris: (p, b) => `billigst ${p} hos ${b}`, apne: 'Vis tilbud', lukk: 'Skjul',
+    apneAlle: 'Åpne alle', lukkAlle: 'Lukk alle',
     eksakt: 'Bare dette ordet', eksaktHjelp: '(ingen synonymer)', eksaktMerke: 'Bare dette ordet',
     valgSynonymer: (n) => `Med synonymer (+${n})`, valgEksakt: (o) => `Bare «${o}»`,
     sokerBare: (o) => `Søker bare etter «${o}» – ingen synonymer.`,
-    eksaktForklaring: 'Søker bare etter ordet du skrev (også f.eks. «badehåndkle» og «håndkleet»), ikke synonymer.',
+    eksaktForklaring: (o) => `Søker bare etter «${o}» (og ord som inneholder det), ikke synonymer.`,
     medSynonymer: 'Søk også etter synonymer',
     installer: '📲 Installer appen', installert: 'Tilbudsvakt er installert ✔ Du finner den på startskjermen.',
     installerHjelp: 'Trykk ⋮ øverst til høyre i Chrome og velg «Installer app» eller «Legg til på startskjermen».',
@@ -109,10 +111,12 @@ const T = {
     kilde: { ordbok: 'dictionary', beslektet: 'synonym list', laert: 'from your wishes' },
     funnetNaa: (o, n, p) => `${n === 1 ? '1 offer' : `${n} offers`} on “${o}” now – cheapest ${p}.`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
+    fraPris: (p, b) => `cheapest ${p} at ${b}`, apne: 'Show offers', lukk: 'Hide',
+    apneAlle: 'Expand all', lukkAlle: 'Collapse all',
     eksakt: 'Only this word', eksaktHjelp: '(no synonyms)', eksaktMerke: 'Only this word',
     valgSynonymer: (n) => `With synonyms (+${n})`, valgEksakt: (o) => `Only “${o}”`,
     sokerBare: (o) => `Searching only for “${o}” – no synonyms.`,
-    eksaktForklaring: 'Searches only for the word you typed (incl. compounds and inflections), not synonyms.',
+    eksaktForklaring: (o) => `Searching only for “${o}” (and words containing it), not synonyms.`,
     medSynonymer: 'Also search for synonyms',
     installer: '📲 Install app', installert: 'Tilbudsvakt is installed ✔ You’ll find it on your home screen.',
     installerHjelp: 'Tap ⋮ at the top right in Chrome and choose “Install app” or “Add to Home screen”.',
@@ -207,6 +211,9 @@ let utenNett = false;
 let serverFeil = false;
 const sjekkerNa = new Set();
 const fjernede = new Set(); // ord fjernet fra et nytt ønske før det legges til
+// Ønsker som er åpnet (resten vises sammenfoldet). Huskes mellom besøk.
+const apneOnsker = new Set(hentLagret('apneOnsker') ?? []);
+const lagreApne = () => lagre('apneOnsker', [...apneOnsker]);
 let redigerer = null;
 
 async function lastInn() {
@@ -426,18 +433,25 @@ function tegnOnsker() {
         ? `<ul class="tilbudsliste">${liste.slice(0, 6).map(tilbudHtml).join('')}</ul>${liste.length > 6
           ? `<details class="flere-tilbud"><summary>${esc(t('visAlle')(liste.length))}</summary><ul class="tilbudsliste">${liste.slice(6).map(tilbudHtml).join('')}</ul></details>` : ''}`
         : `<p class="liten svak">${esc(t('ingenTilbud'))}</p>`;
+    const apen = apneOnsker.has(o.id);
+    const billigst = liste[0];
+    const sammendrag = sjekker ? t('sjekker')
+      : billigst ? t('fraPris')(kr(billigst.pris), billigst.butikk) : '';
     return `
-      <article class="onske kort${liste.length ? ' har-tilbud' : ''}" data-id="${esc(o.id)}">
-        <header class="onske-topp">
-          <div>
-            <h3>${esc(o.tittel)}</h3>
-            ${meta ? `<p class="liten">${esc(meta)}</p>` : ''}
-            ${o.eksakt ? `<span class="merke-eksakt" title="${esc(t('eksaktForklaring'))}">🎯 ${esc(t('eksaktMerke'))}</span>` : ''}
-          </div>
+      <article class="onske kort${liste.length ? ' har-tilbud' : ''}${apen ? ' apen' : ''}" data-id="${esc(o.id)}">
+        <button type="button" class="onske-topp" data-gjor="veksle" aria-expanded="${apen}" aria-controls="innhold-${esc(o.id)}">
+          <span class="onske-navn">
+            <span class="tittel">${esc(o.tittel)}${o.eksakt ? ' <span class="merke-eksakt" title="' + esc(t('eksaktForklaring')(o.tittel)) + '">🎯</span>' : ''}</span>
+            ${sammendrag ? `<span class="sammendrag">${sjekker ? '<span class="spinner" aria-hidden="true"></span> ' : ''}${esc(sammendrag)}</span>` : ''}
+          </span>
           <span class="teller${liste.length ? ' aktiv' : ''}">${esc(t('tilbud')(liste.length))}</span>
-        </header>
+          <span class="pil" aria-hidden="true">›</span>
+        </button>
+        <div class="onske-innhold" id="innhold-${esc(o.id)}"${apen ? '' : ' hidden'}>
+        ${meta ? `<p class="liten">${esc(meta)}</p>` : ''}
+        ${o.eksakt ? `<span class="merke-eksakt">🎯 ${esc(t('eksaktMerke'))}</span>` : ''}
         ${o.eksakt
-          ? `<p class="liten svak">${esc(t('eksaktForklaring'))} <button type="button" class="lenkeknapp" data-gjor="synonymer">${esc(t('medSynonymer'))}</button></p>
+          ? `<p class="liten svak">${esc(t('eksaktForklaring')(o.tittel))} <button type="button" class="lenkeknapp" data-gjor="synonymer">${esc(t('medSynonymer'))}</button></p>
              ${o.ekstra.length ? `<div class="brikker">${brikker(plan.termer.filter((x) => brett(x) !== brett(o.tittel)), 6, true)}</div>` : ''}`
           : `<div class="brikker">${brikker(plan.termer.filter((x) => brett(x) !== brett(o.tittel)), 6, true)}</div>`}
         ${o.fjern?.length ? `<p class="liten svak">${esc(t('fjernet'))}: ${o.fjern.map((f) => `<button type="button" class="angre" data-angre="${esc(f)}">${esc(f)} ↺</button>`).join(' ')}</p>` : ''}
@@ -448,8 +462,12 @@ function tegnOnsker() {
           <button type="button" class="knapp tekst" data-gjor="endre">${esc(t('endre'))}</button>
           <button type="button" class="knapp tekst" data-gjor="slett">${esc(t('kjopt'))}</button>
         </div>
+        </div>
       </article>`;
   }).join('');
+  const knapp = $('#veksle-alle');
+  knapp.hidden = onsker.length < 2;
+  knapp.textContent = apneOnsker.size ? t('lukkAlle') : t('apneAlle');
 }
 
 function tegnForhand() {
@@ -511,7 +529,7 @@ function tegn(tving = false) {
   tegnVarselKnapp();
   tegnInstallerKnapp();
   // Tegn kortene bare når noe er endret, så valgte forslag og åpne lister ikke nullstilles.
-  const nokkel = JSON.stringify([sprak, onsker, blokkert, funn?.oppdatert, Object.keys(umiddelbar).length, [...sjekkerNa], redigerer]);
+  const nokkel = JSON.stringify([sprak, onsker, blokkert, funn?.oppdatert, Object.keys(umiddelbar).length, [...sjekkerNa], redigerer, [...apneOnsker]]);
   if (tving || nokkel !== sistTegnet) { sistTegnet = nokkel; tegnOnsker(); }
   tegnBlokkert();
   tegnForhand();
@@ -554,6 +572,8 @@ async function leggTilOnske(data) {
   const o = await api('onsker', { metode: 'POST', data });
   onsker = [...onsker, o];
   lagre('onsker', onsker);
+  apneOnsker.add(o.id);
+  lagreApne();
   tegn(true);
   const treff = await sjekkNa(o);
   if (treff) {
@@ -709,6 +729,18 @@ $('#onsker').addEventListener('click', async (e) => {
   }
   const gjor = e.target.closest('[data-gjor]')?.dataset.gjor;
   if (!gjor) return;
+  if (gjor === 'veksle') {
+    if (apneOnsker.has(o.id)) apneOnsker.delete(o.id); else apneOnsker.add(o.id);
+    lagreApne();
+    // Bytt direkte i DOM-en, så åpne lister og valg i andre kort ikke tegnes på nytt.
+    const apen = apneOnsker.has(o.id);
+    kort.classList.toggle('apen', apen);
+    kort.querySelector('.onske-topp').setAttribute('aria-expanded', String(apen));
+    kort.querySelector('.onske-innhold').hidden = !apen;
+    sistTegnet = '';
+    $('#veksle-alle').textContent = apneOnsker.size ? t('lukkAlle') : t('apneAlle');
+    return;
+  }
   if (gjor === 'legg-til' || gjor === 'unnga') {
     const valgte = [...forslag.querySelectorAll('.valg.valgt')].map((x) => x.dataset.ord);
     const felt = gjor === 'legg-til' ? 'ekstra' : 'unnga';
@@ -731,6 +763,8 @@ $('#onsker').addEventListener('click', async (e) => {
     try {
       await api(`onsker/${o.id}`, { metode: 'DELETE' });
       onsker = onsker.filter((x) => x.id !== o.id);
+      apneOnsker.delete(o.id);
+      lagreApne();
       delete umiddelbar[o.id];
       lagre('onsker', onsker);
       lagre('umiddelbar', umiddelbar);
@@ -787,6 +821,11 @@ $('#ny-ord').addEventListener('input', () => { if (!$('#ny-ord').value.trim()) $
 $('#ny-ord').addEventListener('input', () => { if (!$('#ny-ord').value.trim()) fjernede.clear(); });
 $('#test-ord').addEventListener('input', tegnTest);
 $('#oppdater').addEventListener('click', lastInn);
+$('#veksle-alle').addEventListener('click', () => {
+  if (apneOnsker.size) apneOnsker.clear(); else onsker.forEach((o) => apneOnsker.add(o.id));
+  lagreApne();
+  tegn(true);
+});
 $('#varsler').addEventListener('click', () => {
   if ($('#varsler').classList.contains('paa')) return;
   slaPaVarsler().catch((e) => visBeskjed(`${t('varslerBlokkert')} (${e.message})`));
