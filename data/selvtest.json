@@ -1,27 +1,25 @@
 {
-  "tid": "2026-10-18T21:33:00.274Z",
-  "ord": "melk",
+  "tid": "2026-10-19T13:20:48.263Z",
+  "ord": "teskje",
   "logg": [
     "POST onsker → 201",
-    "GET sok?kilde=tjek&q=melk → 200",
-    "GET sok?kilde=kassal&q=melk → 200",
+    "GET sok?kilde=tjek&q=teskje → 200",
+    "GET sok?kilde=kassal&q=teskje → 200",
     "GET admin/brukere → 200",
-    "GET historikk?ean=7041013200110 → 200",
-    "DELETE onsker/n6i2mauany → 200"
+    "GET historikk?ean=7037421063423 → 200",
+    "DELETE onsker/k2hgkqp36u → 200"
   ],
-  "tjekTilbud": 24,
-  "kassalProdukter": 60,
-  "treff": 1,
-  "eksempler": [
-    "25 HOFF POTETMOS GRESSLØK & MELK (Bunnpris)"
-  ],
+  "tjekTilbud": 2,
+  "kassalProdukter": 19,
+  "treff": 0,
+  "eksempler": [],
   "adminOk": true,
-  "histProdukt": "Freia Melkesjokolade Sjokoladeis 6stk Hennig-Olsen (7041013200110)",
-  "histEksempel": "{\"data\":[{\"ean\":\"7041013200110\",\"name\":\"Freia Melkesjokolade Sjokoladeis 6stk Hennig-Olsen\",\"weight\":6,\"weight_unit\":\"piece\",\"stores\":[{\"store\":\"JOKER_NO\",\"name\":\"Joker\",\"current_price\":\"93.90\",\"current_unit_price\":15.65,\"current_unit_price_unit\":\"piece\",\"last_checked\":\"2026-10-18T07:00:16.000000Z\"},{\"store\":\"SPAR_NO\",\"name\":\"SPAR\",\"current_price\":\"87.90\",\"current_unit_price\":14.65,\"current_unit_price_unit\":\"piece\",\"last_checked\":\"2026-10-18T07:01:04.000000Z\"},{\"store\":\"MENY_NO\",\"name\":\"Meny\",\"current_price\":\"88.00\",\"current_unit_price\":14.67,\"current_unit_price_unit\":\"piece\",\"last_checked\":\"2026-10-18T07:00:18.000000Z\"},{\"store\":\"BUNNPRIS\",\"name\":\"Bunnpris\",\"current_price\":\"70.00\",\"current_unit_price\":null,\"current_unit_price_unit\":\"kg\",\"last_checked\":\"2026-10-18T07:15:59.000000Z\"}],\"price_history\":[{\"price\":93.9,\"date\":\"2026-10-18\",\"store\":\"JOKER_NO\"},{\"price\":87.9,\"date\":\"2026-10-18\",\"store\":\"SPAR_NO\"},{\"price\":88,\"date\":\"2026-10-18\",\"store\":\"MENY_NO\"},{\"price\":70,\"date\":\"2026-10-18\",\"store\":\"BUNNPRIS\"},{\"price\":93.9,\"date\":\"2026-10-17\",\"store\":\"JOKER_NO\"},{\"price\":87.9,\"date\":\"2026-10-17\",\"store\":\"SPAR_NO\"},{\"price\":88,\"date\":\"2026-10-17\",\"store\":\"MENY_NO\"},{\"price\":70,\"date\":\"2026-10-17\",\"store\":\"BUNNPRIS\"},{\"price\":93.9,\"date\":\"2026-10-16\",\"store\":\"JOKER_NO\"},{\"price\":87.9,\"date\":\"2026-10-16\",\"store\":\"SPAR_NO\"},{\"price\":88,\"date\":\"2026-10-16\",\"store\":\"MENY_NO\"},{\"price\":70,\"date\":\"2026-10-16\",\"store\":\"BUNNPRIS\"},{\"price\":93.9,\"date\":\"2026-10-15\",\"store\":\"JOKER_NO\"},{\"pr",
+  "histProdukt": "Terteskjell 8stk 210g Berthas (7037421063423)",
+  "histEksempel": "{\"data\":[{\"ean\":\"7037421063423\",\"name\":\"Terteskjell 8stk 210g Berthas\",\"weight\":210,\"weight_unit\":\"g\",\"stores\":[{\"store\":\"JOKER_NO\",\"name\":\"Joker\",\"current_price\":\"46.90\",\"current_unit_price\":223.33,\"current_unit_price_unit\":\"kg\",\"last_checked\":\"2026-10-19T07:00:51.000000Z\"},{\"store\":\"MENY_NO\",\"name\":\"Meny\",\"current_price\":\"46.90\",\"current_unit_price\":223.33,\"current_unit_price_unit\":\"kg\",\"last_checked\":\"2026-10-19T07:02:36.000000Z\"},{\"store\":\"ODA_NO\",\"name\":\"Oda\",\"current_price\":\"46.60\",\"current_unit_price\":null,\"current_unit_price_unit\":\"kg\",\"last_checked\":\"2026-10-19T07:48:02.000000Z\"}],\"price_history\":[{\"price\":46.9,\"date\":\"2026-10-19\",\"store\":\"JOKER_NO\"},{\"price\":46.9,\"date\":\"2026-10-19\",\"store\":\"MENY_NO\"},{\"price\":46.6,\"date\":\"2026-10-19\",\"store\":\"ODA_NO\"},{\"price\":46.9,\"date\":\"2026-10-18\",\"store\":\"JOKER_NO\"},{\"price\":46.9,\"date\":\"2026-10-18\",\"store\":\"MENY_NO\"},{\"price\":46.6,\"date\":\"2026-10-18\",\"store\":\"ODA_NO\"},{\"price\":46.9,\"date\":\"2026-10-17\",\"store\":\"JOKER_NO\"},{\"price\":46.9,\"date\":\"2026-10-17\",\"store\":\"MENY_NO\"},{\"price\":46.6,\"date\":\"2026-10-17\",\"store\":\"ODA_NO\"},{\"price\":46.9,\"date\":\"2026-10-16\",\"store\":\"JOKER_NO\"},{\"price\":46.9,\"date\":\"2026-10-16\",\"store\":\"MENY_NO\"},{\"price\":46.6,\"date\":\"2026-10-16\",\"store\":\"ODA_NO\"},{\"price\":46.9,\"date\":\"2026-10-15\",\"store\":\"JOKER_NO\"},{\"price\":46.9,\"date\":\"2026-10-15\",\"store\":\"MENY_NO\"},{\"price\":46.6,\"date\":\"2026-10-15\",\"store\":\"ODA_NO\"},{\"price\":46.9,\"date\":\"2026-10-14\",\"store\":\"JOKER_NO\"},{\"price\":46.9,\"date\":\"2026-10-14\",\"st",
   "kassalHistorikkISok": [
     25,
     25,
     25
   ],
-  "appHarVersjon": "v2.1.0"
+  "appHarVersjon": "v2.4.0"
 }
