@@ -3,7 +3,7 @@ import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
 import { oppsummer, sparklinje, fraKassalBulk, slaSammen } from './lib/historikk.js';
 
-const VERSJON = '2.4.0';
+const VERSJON = '2.4.1';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
@@ -45,6 +45,8 @@ const T = {
     funnetNaa: (o, n, p) => `${n === 1 ? '1 tilbud' : `${n} tilbud`} på «${o}» nå – billigst ${p}.`,
     ingenNaa: (o) => `Ingen tilbud på «${o}» akkurat nå. Tilbudsvakt følger med og varsler deg.`,
     eksakt: 'Bare dette ordet', eksaktHjelp: '(ingen synonymer)', eksaktMerke: 'Bare dette ordet',
+    valgSynonymer: (n) => `Med synonymer (+${n})`, valgEksakt: (o) => `Bare «${o}»`,
+    sokerBare: (o) => `Søker bare etter «${o}» – ingen synonymer.`,
     eksaktForklaring: 'Søker bare etter ordet du skrev (også f.eks. «badehåndkle» og «håndkleet»), ikke synonymer.',
     medSynonymer: 'Søk også etter synonymer',
     installer: '📲 Installer appen', installert: 'Tilbudsvakt er installert ✔ Du finner den på startskjermen.',
@@ -108,6 +110,8 @@ const T = {
     funnetNaa: (o, n, p) => `${n === 1 ? '1 offer' : `${n} offers`} on “${o}” now – cheapest ${p}.`,
     ingenNaa: (o) => `No offers on “${o}” right now. Tilbudsvakt will keep watching.`,
     eksakt: 'Only this word', eksaktHjelp: '(no synonyms)', eksaktMerke: 'Only this word',
+    valgSynonymer: (n) => `With synonyms (+${n})`, valgEksakt: (o) => `Only “${o}”`,
+    sokerBare: (o) => `Searching only for “${o}” – no synonyms.`,
     eksaktForklaring: 'Searches only for the word you typed (incl. compounds and inflections), not synonyms.',
     medSynonymer: 'Also search for synonyms',
     installer: '📲 Install app', installert: 'Tilbudsvakt is installed ✔ You’ll find it on your home screen.',
@@ -454,11 +458,26 @@ function tegnForhand() {
   const boks = $('#forhand');
   if (!tittel) { boks.hidden = true; return; }
   const eksakt = $('#ny-eksakt').checked;
-  const plan = utvid({ tittel, ekstra, unnga: liste($('#ny-unnga').value), fjern: [...fjernede], eksakt });
+  const unnga = liste($('#ny-unnga').value);
+  // Hvor mange synonymer ordet ville fått – avgjør om valget «Bare dette ordet» gir mening.
+  const medSyn = utvid({ tittel, ekstra, unnga, fjern: [...fjernede] });
+  const antallSyn = medSyn.termer.filter((x) => brett(x) !== brett(tittel)).length;
+  const plan = utvid({ tittel, ekstra, unnga, fjern: [...fjernede], eksakt });
   const andre = plan.termer.filter((x) => brett(x) !== brett(tittel));
   const kanskje = eksakt ? [] : beslektet(plan, undefined, funn?.laerte ?? []).slice(0, 8).map((x) => x.ord);
-  const fjernetHer = [...fjernede].filter((f) => utvid({ tittel, ekstra }).termer.some((x) => brett(x) === brett(f)));
-  boks.hidden = !andre.length && !kanskje.length && !fjernetHer.length;
+  const fjernetHer = eksakt ? [] : [...fjernede].filter((f) => utvid({ tittel, ekstra }).termer.some((x) => brett(x) === brett(f)));
+  const harSynonymer = antallSyn > 0 || fjernetHer.length > 0;
+
+  // Valget vises med en gang ordet har synonymer.
+  $('#sokevalg').hidden = !harSynonymer;
+  $('#valg-synonymer').textContent = t('valgSynonymer')(antallSyn);
+  $('#valg-eksakt').textContent = t('valgEksakt')(tittel);
+  $('#valg-synonymer').setAttribute('aria-checked', String(!eksakt));
+  $('#valg-eksakt').setAttribute('aria-checked', String(eksakt));
+  $('#forhand-tekst').textContent = eksakt ? t('sokerBare')(tittel) : t('sokerOgsa');
+  $('#forhand-tekst').hidden = !eksakt && !andre.length;
+
+  boks.hidden = !harSynonymer && !kanskje.length;
   $('#forhand-brikker').innerHTML = brikker(andre, 10, true)
     + (fjernetHer.length ? `<p class="liten svak hel">${esc(t('fjernet'))}: ${fjernetHer.map((f) => `<button type="button" class="angre" data-angre="${esc(f)}">${esc(f)} ↺</button>`).join(' ')}</p>` : '')
     + (kanskje.length ? `<p class="liten svak hel">${esc(t('forslagSkjema'))}</p>${kanskje.map((k) => `<button type="button" class="brikke valg pluss" data-legg="${esc(k)}">+ ${esc(k)}</button>`).join('')}` : '');
@@ -626,7 +645,6 @@ $('#ny-form').addEventListener('submit', async (e) => {
   knapp.disabled = true;
   try {
     e.target.reset();
-    $('#ny-eksakt').checked = data.eksakt;
     fjernede.clear();
     tegnForhand();
     await leggTilOnske(data);
@@ -762,7 +780,10 @@ $('#blokk-form').addEventListener('submit', (e) => {
 });
 
 ['#ny-ord', '#ny-ekstra', '#ny-unnga'].forEach((s) => $(s).addEventListener('input', tegnForhand));
-$('#ny-eksakt').addEventListener('change', () => { lagre('sistEksakt', $('#ny-eksakt').checked); tegnForhand(); });
+$('#valg-synonymer').addEventListener('click', () => { $('#ny-eksakt').checked = false; tegnForhand(); });
+$('#valg-eksakt').addEventListener('click', () => { $('#ny-eksakt').checked = true; tegnForhand(); });
+// Nytt ord = start med synonymer igjen.
+$('#ny-ord').addEventListener('input', () => { if (!$('#ny-ord').value.trim()) $('#ny-eksakt').checked = false; });
 $('#ny-ord').addEventListener('input', () => { if (!$('#ny-ord').value.trim()) fjernede.clear(); });
 $('#test-ord').addEventListener('input', tegnTest);
 $('#oppdater').addEventListener('click', lastInn);
@@ -799,7 +820,6 @@ $('#kode-form').addEventListener('submit', async (e) => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) lastInn(); });
 
 // ---------- Oppstart ----------
-$('#ny-eksakt').checked = hentLagret('sistEksakt') === true;
 $('#versjon').textContent = `v${VERSJON}`;
 $('#bunn-versjon').textContent = `Tilbudsvakt v${VERSJON}`;
 tegn(true);

@@ -17,7 +17,7 @@
       <img src="icon.svg" alt="" class="logo" width="40" height="40">
       <div class="merke">
         <h1>Tilbudsvakt</h1>
-        <span class="versjon" id="versjon">v2.4.0</span>
+        <span class="versjon" id="versjon">v2.4.1</span>
       </div>
       <button class="sprak" id="sprak" type="button" aria-label="Bytt språk">EN</button>
     </div>
@@ -38,13 +38,13 @@
                  data-tp="nyPlaceholder" placeholder="F.eks. håndkle, teskjeer, ved, kaffe">
           <button type="submit" class="knapp hoved" data-t="leggTil">Legg til</button>
         </div>
-        <label class="bryter">
-          <input type="checkbox" id="ny-eksakt">
-          <span class="bryter-spor" aria-hidden="true"></span>
-          <span><b data-t="eksakt">Bare dette ordet</b> <span class="liten svak" data-t="eksaktHjelp">(ingen synonymer)</span></span>
-        </label>
+        <input type="checkbox" id="ny-eksakt" hidden>
         <div class="forhand" id="forhand" hidden>
-          <p class="liten" data-t="sokerOgsa">Søker også etter:</p>
+          <div class="valgknapper" id="sokevalg" role="radiogroup" aria-label="Hva skal det søkes etter?">
+            <button type="button" role="radio" class="valgknapp" id="valg-synonymer" aria-checked="true"></button>
+            <button type="button" role="radio" class="valgknapp" id="valg-eksakt" aria-checked="false"></button>
+          </div>
+          <p class="liten" id="forhand-tekst" data-t="sokerOgsa">Søker også etter:</p>
           <div class="brikker" id="forhand-brikker"></div>
         </div>
         <details class="flere">
@@ -106,7 +106,7 @@
   </main>
 
   <footer class="bunn">
-    <span id="bunn-versjon">Tilbudsvakt v2.4.0</span> ·
+    <span id="bunn-versjon">Tilbudsvakt v2.4.1</span> ·
     <a id="repo-lenke" href="https://github.com/khalm/tilbudsvakt" target="_blank" rel="noopener">Kildekode</a>
   </footer>
 
