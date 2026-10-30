@@ -1,5 +1,5 @@
 // Tilbudsvakt service worker: appen virker uten nett, data hentes ferskt når mulig.
-const CACHE = 'tilbudsvakt-v2.5.1';
+const CACHE = 'tilbudsvakt-v2.6.0';
 const SKALL = ['./', 'index.html', 'style.css', 'app.js', 'lib/matcher.js', 'lib/synonymer.js', 'lib/forslag.js', 'lib/tilbud.js', 'lib/historikk.js',
   'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 

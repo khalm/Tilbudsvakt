@@ -3,7 +3,7 @@ import { beslektet } from './lib/forslag.js';
 import { fraTjek, fraKassal, finnTreff } from './lib/tilbud.js';
 import { oppsummer, sparklinje, fraKassalBulk, slaSammen } from './lib/historikk.js';
 
-const VERSJON = '2.5.1';
+const VERSJON = '2.6.0';
 const VAPID_OFFENTLIG = 'BD4V-Tm80lC4uIXUJ_koeqn-lyBNACrFxrvVBZSf_QxNlCTKCwffEe3KX0XwahBFQcLGMPXw3tKtspT6z_YJrCs';
 const UMIDDELBAR_TERMER = 8; // søk ved umiddelbar sjekk i appen
 
